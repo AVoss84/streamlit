@@ -2,7 +2,7 @@
 
 ## Installation
 
-The app was tested with python 3.7
+The app was tested with Python 3.7
 
 ### Requirements
 
