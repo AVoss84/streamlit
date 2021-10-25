@@ -14,7 +14,6 @@ st.set_page_config(layout="wide")
 
 header = st.container()
 dataset = st.container()
-#section = st.container()
 my_expander1 = st.expander(label = "Histograms")
 my_expander2 = st.expander(label = "Line plots")
 
