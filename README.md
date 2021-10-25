@@ -2,11 +2,11 @@
 
 ## Installation
 
-### Requirements:
-
 The app was tested with python 3.7
 
-To install it locally, execute the following steps:
+### Requirements:
+
+To install your application locally, execute the following steps:
 
 ```bash
 ${CONDA_PATH}/conda env create -f environment.yml
