@@ -1,0 +1,13 @@
+name: streaml
+channels:
+  - conda-forge
+  - default
+dependencies:
+  - python=3.7
+  #- pip
+  - pandas
+  - xlrd
+  - openpyxl
+  #- pip:
+  #  # works for regular pip packages
+  # - streamlit
