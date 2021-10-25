@@ -1,2 +1,2 @@
 # Python dashboard using 'streamlit'
-Playaround with streamlit
+Streamlit dashboard based on Python 3.7
