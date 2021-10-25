@@ -97,15 +97,13 @@ def make_hist_plot(df : pd.DataFrame, used_columns = ['time', 'target1', 'est1',
 ################ Start app
 
 
-
-
 with header:
     # Title of app
     st.title("Streamlit app")
     #st.text("This is a test application")
 
 # Add a sidebar
-st.sidebar.subheader("Menu")
+st.sidebar.header("Menu")
 
 with st.sidebar:
     # set up file upload:
