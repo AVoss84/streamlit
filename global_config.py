@@ -11,11 +11,8 @@ using = 'vm'                    # own virtual machine
 ## if not apply default paths from test environment:
 #-----------------------------------------------------------
 if using == 'vm':
-    defaults = {"UC_CODE_DIR": "/home/G126143/claims-dashboard/",                
-                #"UC_LOG_DIR": "/home/G126143/fraud-model-dev/src/log-files/",        
-                "UC_DATA_ROOT": "/data/data/claims_reporting/input_data/",       
-                #"UC_DATA_ROOT": "/data/data/fraud_model/",
-                #"UC_SOURCE_DATA_ROOT" : "/data/data/fraud_model/",       # only needed in case of MFT creation! Hence not for Docker.
+    defaults = {"UC_CODE_DIR": "/dashboard/",                      
+                "UC_DATA_ROOT": "/data/data/reporting/input_data/",       
                 "UC_PROFILE" :"prod",        # "prod" ; set this profile for overall Postgres usage, also Flask server
                 "UC_DB_CONNECTION": ''
                 #"UC_PORT":"5000", 
@@ -23,10 +20,8 @@ if using == 'vm':
             }
 else:
     defaults = {
-            "UC_CODE_DIR": "/app/src/",                
-            #"UC_LOG_DIR": "/app/src/log-files/",           
-            "UC_DATA_ROOT": "/app/Data/claims_reporting/input_data",         
-            #"UC_SOURCE_DATA_ROOT" : "/app/Data/fraud_model/",     # just for completeness!       
+            "UC_CODE_DIR": "/app/src/",                          
+            "UC_DATA_ROOT": "/app/Data/reporting/input_data",            
             "UC_PROFILE" :"prod",        # "prod" ; set this profile for overall Postgres usage, also Flask server
             "UC_DB_CONNECTION": ''
             #"UC_PORT":"5000", 
