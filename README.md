@@ -4,7 +4,7 @@
 
 The app was tested with python 3.7
 
-### Requirements:
+### Requirements
 
 To install your application locally, execute the following steps:
 
@@ -29,3 +29,5 @@ Start your application by running:
 ```bash                                 
 $ streamlit run app.py
 ```
+
+You might want to customize your app settings by creating 'config.toml' file in your '~/.streamlit' folder, e.g. for port settings or any custom app settings
