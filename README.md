@@ -30,4 +30,4 @@ Start your application by running:
 $ streamlit run app.py
 ```
 
-You might want to customize your app settings by creating 'config.toml' file in your '~/.streamlit' folder, e.g. for port settings or any custom app settings
+Note: You might also want to further customize your app by creating a 'config.toml' file in your '~/.streamlit' folder, e.g. for port modifications or any custom app settings
