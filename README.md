@@ -1,4 +1,4 @@
-# Code generator dashboard using OpenAI's GPT-3 
+# Code generator using OpenAI's GPT-3 
 
 ## Installation
 
