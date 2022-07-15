@@ -24,7 +24,7 @@ Install other packages using pip:
 $ pip install -r requirements.txt             
 ```
 
-Start your application by running:
+Start your streamlit application by running:
 
 ```bash                                 
 $ streamlit run app.py
