@@ -1,4 +1,4 @@
-# Streamlit NLP dashboard
+# Code generator dashboard using OpenAI's GPT-3 
 
 ## Installation
 
