@@ -2,3 +2,4 @@ streamlit==1.11
 plotly-express
 matplotlib
 importlib
+openai==0.20
