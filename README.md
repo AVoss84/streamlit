@@ -29,6 +29,7 @@ Start your streamlit application by running:
 ```bash                                 
 $ streamlit run app.py
 ```
+Note: Make sure your OpenAI API key is up-to-date, see https://beta.openai.com/account/api-keys 
 
 *Example input text: 'Create a SQL query that shows the number of claims per line of business in Germany in descending order.'*
 
