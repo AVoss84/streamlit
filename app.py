@@ -9,7 +9,7 @@ from copy import deepcopy
 import os, openai
 from importlib import reload
 
-#reload(glob)
+reload(glob)
 
 #openai.api_key = os.getenv("OPENAI_API_KEY")  
 openai.api_key = glob.UC_OPENAI_API_KEY
@@ -108,7 +108,7 @@ def make_hist_plot(df : pd.DataFrame, used_columns = ['time', 'target1', 'est1',
 
 with header:
     # Title of app
-    st.title("NLP playground")
+    st.title("Code generator")
     #st.text("This is a test application")
 
 # Add a sidebar
@@ -122,7 +122,7 @@ with st.sidebar:
 #-------------------------------------------------------------------------
 with text_input:
     
-    txt = st.text_area(label = 'Enter text query here:', value="", height  = 400)
+    txt = st.text_area(label = 'Enter text query here:', value="", height  = 100)
     
     if txt is not None:
         response = openai.Completion.create(
@@ -134,7 +134,7 @@ with text_input:
         frequency_penalty=0.0,
         presence_penalty=0.0
         )
-        st.write('Input text:', txt)
+        st.write('Input text:\n', txt)
         st.write('Generated text:', response['choices'][0]['text'])
 
 #-------------------------------------------------------------------------------

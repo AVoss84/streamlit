@@ -17,7 +17,7 @@ if using == 'vm':
                 #"UC_DB_CONNECTION": '',
                 #"UC_PORT":"5000", 
                 #"UC_APP_CONNECTION": '0.0.0.0'
-                "UC_OPENAI_API_KEY": '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'
+                "UC_OPENAI_API_KEY": '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'
             }
 else:
     defaults = {
@@ -27,7 +27,7 @@ else:
             #"UC_DB_CONNECTION": '',
             #"UC_PORT":"5000", 
             #"UC_APP_CONNECTION": '0.0.0.0'
-            "UC_OPENAI_API_KEY": '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'
+            "UC_OPENAI_API_KEY": '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'
             }                      
 
 #-------------------------------------------------------------------------------------------------------------------------------
