@@ -127,7 +127,7 @@ with text_input:
     if txt is not None:
         response = openai.Completion.create(
         model="text-davinci-002",
-        prompt=txt,     #"Create a SQL request to find all users who live in California and have over 1000 credits:",
+        prompt=txt,     
         temperature=0.3,
         max_tokens=60,
         top_p=1.0,
