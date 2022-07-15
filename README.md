@@ -1,4 +1,4 @@
-# Streamlit dashboard
+# Streamlit NLP dashboard
 
 ## Installation
 
