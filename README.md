@@ -30,6 +30,6 @@ Start your streamlit application by running:
 $ streamlit run app.py
 ```
 
-*Example input text: 'Generate a SQL query that shows the number of claims per line of business in Germany in descending order.'*
+*Example input text: 'Create a SQL query that shows the number of claims per line of business in Germany in descending order.'*
 
 Note: You might also want to further customize your app by creating a 'config.toml' file in your '~/.streamlit' folder, e.g. for port modifications or any custom app settings
