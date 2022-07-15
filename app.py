@@ -12,7 +12,7 @@ from importlib import reload
 reload(glob)
 
 #openai.api_key = os.getenv("OPENAI_API_KEY")  
-openai.api_key = glob.UC_OPENAI_API_KEY
+openai.api_key = glob.UC_OPENAI_API_KEY        # Note: Has to be updated using new API key from https://beta.openai.com/account/api-keys 
 
 #plt.rcParams["figure.figsize"] = (9,2)
 
