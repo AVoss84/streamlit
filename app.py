@@ -14,6 +14,7 @@ st.set_page_config(layout="wide")
 
 header = st.container()
 dataset = st.container()
+text_input = st.container()
 my_expander1 = st.expander(label = "Histograms")
 my_expander2 = st.expander(label = "Line plots")
 
@@ -99,7 +100,7 @@ def make_hist_plot(df : pd.DataFrame, used_columns = ['time', 'target1', 'est1',
 
 with header:
     # Title of app
-    st.title("Streamlit app")
+    st.title("NLP playground")
     #st.text("This is a test application")
 
 # Add a sidebar
@@ -110,6 +111,13 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Upload file:", type = ["csv", "xlsx"])    # returns byte object
 
 
+#-------------------------------------------------------------------------
+with text_input:
+
+    txt = st.text_area(label = 'Text to analyze', value="", height  = 400)
+    st.write('Output:', txt)
+
+#-------------------------------------------------------------------------------
 with dataset:
 
     df, df_names = None, ()
