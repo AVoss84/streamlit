@@ -33,4 +33,4 @@ Note: Make sure your OpenAI API key is up-to-date, see https://beta.openai.com/a
 
 *Example input text: 'Create a SQL query that shows the number of claims per line of business in Germany in descending order.'*
 
-Note: You might also want to further customize your app by creating a 'config.toml' file in your '~/.streamlit' folder, e.g. for port modifications or any custom app settings
+You might also want to further customize your app by creating a 'config.toml' file in your '~/.streamlit' folder, e.g. for port modifications or any custom app settings
