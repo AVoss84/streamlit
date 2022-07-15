@@ -4,20 +4,28 @@ import numpy as np
 import plotly_express as px
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
+import global_config as glob
 from copy import deepcopy
+import os, openai
+from importlib import reload
+
+#reload(glob)
+
+#openai.api_key = os.getenv("OPENAI_API_KEY")  
+openai.api_key = glob.UC_OPENAI_API_KEY
 
 #plt.rcParams["figure.figsize"] = (9,2)
 
 # Use the full page instead of a narrow central column
 st.set_page_config(layout="wide")
 
-
+#---------------------------------------------------------
 header = st.container()
 dataset = st.container()
 text_input = st.container()
 my_expander1 = st.expander(label = "Histograms")
 my_expander2 = st.expander(label = "Line plots")
-
+#----------------------------------------------------------
 
 @st.cache
 def load_data_csv(file_byte_object):
@@ -94,9 +102,9 @@ def make_hist_plot(df : pd.DataFrame, used_columns = ['time', 'target1', 'est1',
     return fig
 
 
-######################################################################################################################################################################
+##########################################################################################################################################
 ################ Start app
-
+###################################
 
 with header:
     # Title of app
@@ -113,9 +121,21 @@ with st.sidebar:
 
 #-------------------------------------------------------------------------
 with text_input:
-
-    txt = st.text_area(label = 'Text to analyze', value="", height  = 400)
-    st.write('Output:', txt)
+    
+    txt = st.text_area(label = 'Enter text query here:', value="", height  = 400)
+    
+    if txt is not None:
+        response = openai.Completion.create(
+        model="text-davinci-002",
+        prompt=txt,     #"Create a SQL request to find all users who live in California and have over 1000 credits:",
+        temperature=0.3,
+        max_tokens=60,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=0.0
+        )
+        st.write('Input text:', txt)
+        st.write('Generated text:', response['choices'][0]['text'])
 
 #-------------------------------------------------------------------------------
 
@@ -189,8 +209,8 @@ with dataset:
                 fig = make_line_plot(df = filter_data)
                 st.plotly_chart(fig)     
             
-    else:
-        st.write("No dataset uploaded.")        
+    #else:
+    #    st.write("No dataset uploaded.")        
 
 
 # Create dropdown in main box
