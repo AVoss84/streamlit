@@ -3,3 +3,6 @@ plotly-express
 matplotlib
 importlib
 openai==0.20
+networkx==2.6.3
+nltk==3.7
+sklearn==1.0.2
