@@ -1,4 +1,4 @@
-# Streamlit NLP dashboard
+# Code generator using OpenAI's GPT-3 
 
 ## Installation
 
@@ -24,10 +24,13 @@ Install other packages using pip:
 $ pip install -r requirements.txt             
 ```
 
-Start your application by running:
+Start your streamlit application by running:
 
 ```bash                                 
 $ streamlit run app.py
 ```
+Note: Make sure your OpenAI API key is up-to-date, see https://beta.openai.com/account/api-keys 
 
-Note: You might also want to further customize your app by creating a 'config.toml' file in your '~/.streamlit' folder, e.g. for port modifications or any custom app settings
+*Example input text: 'Create a SQL query that shows the number of claims per line of business in Germany in descending order.'*
+
+You might also want to further customize your app by creating a 'config.toml' file in your '~/.streamlit' folder, e.g. for port modifications or any custom app settings
