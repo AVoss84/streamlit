@@ -89,7 +89,7 @@ corpus_train
 
 # vec.fit_transform()
 
-reload(util)
+#reload(util)
 
 # #stopWords = list(set(stopwords.words('german')))
 
