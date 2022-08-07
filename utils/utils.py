@@ -1,91 +1,170 @@
-import nltk
+import nltk, re, string, typing        # for type hints
 from nltk.corpus import stopwords
-from nltk.cluster.util import cosine_distance
-from nltk.corpus import stopwords
+#from nltk.cluster.util import cosine_distance
+from nltk.stem.snowball import SnowballStemmer
 import numpy as np
 import networkx as nx
+#from pydantic import BaseModel
+from nltk.tokenize import word_tokenize
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.metrics.pairwise import cosine_similarity, linear_kernel #, rbf_kernel 
+from sklearn.feature_extraction.text import TfidfVectorizer
+#from sklearn.metrics import pairwise_distances
+from copy import deepcopy
+from tqdm.auto import tqdm
+import pandas as pd
+from services import file
 
+#nltk.download('punkt')
+#nltk.download('stopwords')
 
-def read_article(file_name: str) -> tuple:
-    with open(file_name, "r") as file:
-        filedata = file.readlines()
-        article = filedata[0].split(". ")
+class clean_text(BaseEstimator, TransformerMixin):
 
-    sentences = []
-    for sentence in article:
-        #print(sentence)
-        sentences.append(sentence.replace("[^a-zA-Z]", " ").split(" "))
-    sentences.pop() 
+    def __init__(self, verbose : bool = True, language : str = 'german'):
+        self.verbose = verbose
+        self.stop_words = set(stopwords.words(language))
+        self.stemmer = SnowballStemmer(language)
     
-    return article[:-1], sentences
-    #return sentences
+    def add_stopwords(self, new_stopwords : set):
+        return self.stop_words.union(new_stopwords)
+
+    def fit(self, X : pd.DataFrame, y : pd.Series = None):
+        return self    
+    
+    def transform(self, X : pd.DataFrame)-> pd.DataFrame:    
+        corpus = deepcopy(X)
+        cleaned_text = []
+        # Preprocess:
+        for se in tqdm(corpus.values.tolist(), total=corpus.shape[0]):
+
+            tokens = word_tokenize(se[0])
+            
+            # convert to lower case
+            tokens = [w.lower() for w in tokens]
+
+            # remove punctuation from each word and replace Umlaute
+            table = str.maketrans('', '', string.punctuation)          # punctuation
+            stripped = [replace_umlaut(w.translate(table)) for w in tokens]     # Umlaute
+
+            # remove remaining tokens that are not alphabetic
+            words = [word for word in stripped if word.isalpha()]   
+            
+            # filter out stop words and apply stemming:
+            words = [self.stemmer.stem(w)  for w in words if not w in self.stop_words]
+            cleaned_text.append(' '.join(words))
+        return pd.DataFrame(cleaned_text, columns=['text']) 
 
 
-def sentence_similarity(sent1, sent2, stopwords=None):
-    if stopwords is None:
-        stopwords = []
- 
-    sent1 = [w.lower() for w in sent1]
-    sent2 = [w.lower() for w in sent2]
- 
-    all_words = list(set(sent1 + sent2))
- 
-    vector1 = [0] * len(all_words)
-    vector2 = [0] * len(all_words)
- 
-    # build the vector for the first sentence
-    for w in sent1:
-        if w in stopwords:
-            continue
-        vector1[all_words.index(w)] += 1
- 
-    # build the vector for the second sentence
-    for w in sent2:
-        if w in stopwords:
-            continue
-        vector2[all_words.index(w)] += 1
- 
-    return 1 - cosine_distance(vector1, vector2)
+def replace_umlaut(mystring : str) -> str:
+    """
+    Replace special German umlauts (vowel mutations) from text
+    """
+    repl_dict = file.YAMLservice(child_path = "config").doRead(filename = "preproc_txt.yaml")
+    vowel_char_map = {ord(k): v for k,v in repl_dict['replace']['german']['umlaute'].items()}  # use unicode value of Umlaut
+    return mystring.translate(vowel_char_map)
 
 
-def build_similarity_matrix(sentences, stop_words):
-    # Create an empty similarity matrix
-    similarity_matrix = np.zeros((len(sentences), len(sentences)))
- 
-    for idx1 in range(len(sentences)):
-        for idx2 in range(len(sentences)):
-            if idx1 == idx2: #ignore if both are same sentences
-                continue 
-            similarity_matrix[idx1][idx2] = sentence_similarity(sentences[idx1], sentences[idx2], stop_words)
-
-    return similarity_matrix
-
-
-def generate_summary(file_name, top_n=5, language = "english"):
-    nltk.download("stopwords")
-    stop_words = stopwords.words(language)
-    summarize_text = []
-
-    # Step 1 - Read text anc split it
-    sentences =  read_article(file_name)
-
-    # Step 2 - Generate Similary Martix across sentences
-    sentence_similarity_martix = build_similarity_matrix(sentences, stop_words)
-
-    # Step 3 - Rank sentences in similarity martix
-    sentence_similarity_graph = nx.from_numpy_array(sentence_similarity_martix)
-    scores = nx.pagerank(sentence_similarity_graph)
-
-    # Step 4 - Sort the rank and pick top sentences
-    ranked_sentence = sorted(((scores[i],s) for i,s in enumerate(sentences)), reverse=True)    
-    print("Indexes of top ranked_sentence order are ", ranked_sentence)    
-
-    for i in range(top_n):
-      summarize_text.append(" ".join(ranked_sentence[i][1]))
-
-    # Step 5 - Offcourse, output the summarize text
-    print("Summarize Text: \n", ". ".join(summarize_text))
-    return summarize_text
+class text_tools:
+    def __init__(self, verbose : bool = True):
+        self.verbose = verbose
+    
+    @staticmethod
+    def iter_document(corpus : list)-> tuple:
+        """_
+        Generator that returns a single document in each call. 
+        Output: string
+        """
+        i, k = 0, len(corpus) 
+        while i < k:
+            yield i, corpus[i]
+            i += 1 
 
 
+    def read_article(self, path: str) -> pd.DataFrame:
+        """_
+        Args:
+            path (str): relative path with filename
 
+        Returns:
+            list: _description_
+        """
+        try:
+            with open(path, "r", errors='ignore') as file:
+                filedata = file.readlines()       
+            if self.verbose : print(f'Successfully imported corpus of size {len(filedata)}')    
+            return pd.DataFrame(filedata, columns=['text'])    
+        except Exception as ex:
+            print(ex)
+
+
+class compute_similarity_matrix(BaseEstimator, TransformerMixin):
+    """
+    Calculate similarity matrix
+    """ 
+    def __init__(self, verbose : bool = True):
+        self.verbose = verbose
+        if self.verbose : print('-- Compute similarity matrix --')
+
+    def fit(self, X : np.ndarray, y : np.ndarray = None):
+        return self    
+    
+    def transform(self, X : np.ndarray)-> np.ndarray:  
+        #return = cosine_similarity(X = sentence_embeddings)    # equivalent to linear dot prod. kernel in case of tf-idf, as already normalized but slower!
+        return linear_kernel(X = X)    # kernel = similarity ; vs. distance metric 
+
+class compute_sentence_page_rank(BaseEstimator, TransformerMixin):
+    """
+    Fit undirected graphical model based on sentence (=document) similarities (Adjacency matrix) 
+    and compute page rank via based on Markov chain - eigenvectors of adj matrix
+    """
+    def __init__(self, verbose : bool = True):
+        self.verbose = verbose
+        if self.verbose : print('-- Compute sentence page rank --')
+
+    def fit(self, X : np.ndarray, y : np.ndarray = None):
+        return self    
+    
+    def transform(self, X : np.ndarray)-> np.ndarray:    
+        # Rank sentences in similarity martix
+        sentence_similarity_graph = nx.from_numpy_array(X)
+        scores = nx.pagerank(G = sentence_similarity_graph)    # page rank score
+        return scores
+
+
+# def clean_text_OLD(text, for_embedding=False):
+#     """
+#         - remove any html tags (< /br> often found)
+#         - Keep only ASCII + European Chars and whitespace, no digits
+#         - remove single letter chars
+#         - convert all whitespaces (tabs etc.) to single wspace
+#         if not for embedding (but e.g. tdf-idf):
+#         - all lowercase
+#         - remove stopwords, punctuation and stemm
+#     """
+#     RE_WSPACE = re.compile(r"\s+", re.IGNORECASE)
+#     RE_TAGS = re.compile(r"<[^>]+>")
+#     RE_ASCII = re.compile(r"[^A-Za-zÀ-ž ]", re.IGNORECASE)
+#     RE_SINGLECHAR = re.compile(r"\b[A-Za-zÀ-ž]\b", re.IGNORECASE)
+#     if for_embedding:
+#         # Keep punctuation
+#         RE_ASCII = re.compile(r"[^A-Za-zÀ-ž,.!? ]", re.IGNORECASE)
+#         RE_SINGLECHAR = re.compile(r"\b[A-Za-zÀ-ž,.!?]\b", re.IGNORECASE)
+
+#     text = re.sub(RE_TAGS, " ", text)
+#     text = re.sub(RE_ASCII, " ", text)
+#     text = re.sub(RE_SINGLECHAR, " ", text)
+#     text = re.sub(RE_WSPACE, " ", text)
+
+#     word_tokens = word_tokenize(text)
+#     words_tokens_lower = [word.lower() for word in word_tokens]
+
+#     if for_embedding:
+#         # no stemming, lowering and punctuation / stop words removal
+#         words_filtered = word_tokens
+#     else:
+#         words_filtered = [
+#             stemmer.stem(word) for word in words_tokens_lower if word not in stop_words
+#         ]
+
+#     text_clean = " ".join(words_filtered)
+#     return text_clean
