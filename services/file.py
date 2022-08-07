@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class CSVService:
-    def __init__(self, path="", delimiter="\t", encoding="UTF-16", schema_map=None, root_path: str = '', **kwargs):
+    def __init__(self, path="", delimiter="\t", encoding="UTF-8", schema_map=None, root_path: str = '', **kwargs):
         # self.__dict__.update(kwargs)
 
         self.path = os.path.join(root_path, path)
@@ -21,7 +21,7 @@ class CSVService:
         df = pd.read_csv(filepath_or_buffer=self.path, encoding=self.encoding, 
                          low_memory=False,     # set to avoid dtype warning 
                          delimiter=self.delimiter, **kwargs)
-        print("CSV Service Read from File: " + str(self.path))
+        print("CSV Service read from file: " + str(self.path))
         if self.schema_map != None:
             df.rename(columns=self.schema_map, inplace=True)
         return df
