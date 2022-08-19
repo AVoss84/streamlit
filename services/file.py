@@ -1,7 +1,7 @@
 import pandas as pd
 #import sqlalchemy as sql
 from imp import reload
-import os, yaml, sys, stat, pickle
+import os, yaml, sys, stat, pickle, json
 from copy import deepcopy
 import dateutil
 from pathlib import Path
@@ -207,3 +207,67 @@ class YAMLservice:
                     print(exc) 
 
 
+# class TXTService:
+#     def __init__(self, path="myfile", encoding="utf-8", root_path=glob.UC_DATA_DIR, **kwargs):
+#         self.myfile = path        # filename
+#         self.myfolder = root_path          # folder/subfolder
+#         self.path = os.path.join(root_path, path)
+#         self.encoding = encoding
+#         self.kwargs = kwargs
+#         self.file_client = service_client.get_file_client(file_system=glob.UC_FILESYSTEM, file_path=self.path) 
+
+#     def doRead(self, **kwargs) -> list:
+#         try:
+#             download = self.file_client.download_file()
+#             download_bytes = download.readall()
+#             assert self.file_client.get_file_properties().size > 0, 'File has size zero.'
+#             df = download_bytes.decode(self.encoding).splitlines() 
+#             print("TXT Service read from file: " + str(self.path))    
+#         except Exception as e0:
+#             print(e0); df = None
+#         finally: 
+#             return df
+        
+#     def doWrite(self, X : list):
+#         try:
+#             data = '\n'.join(X).encode(self.encoding)
+#             self.file_client.create_file()
+#             self.file_client.append_data(data, offset=0, length=len(data))
+#             self.file_client.flush_data(len(data))
+#             print("TXT Service output to file: " + str(self.path))  
+#             return True
+#         except Exception as e0:
+#             print(e0); return False
+
+
+class JSONservice:
+        def __init__(self, child_path : str = '', 
+                     root_path = Path.cwd(), verbose = True, **kwargs):
+            
+            self.root_path = root_path
+            self.child_path = child_path
+            self.verbose = verbose
+            self.kwargs = kwargs
+        
+        def doRead(self, filename : str, **kwargs):  
+            """
+            Read in JSON file from specified path
+            """
+            try:
+                with open(self.root_path / self.child_path / filename , 'r') as stream:
+                    my_json_load = json.load(stream)                    
+                if self.verbose: print(f"Read: {self.root_path / self.child_path / filename}")
+                return my_json_load    
+            except Exception as exc:
+                print(exc) 
+            
+        def doWrite(self, X: dict, filename : str):
+            """
+            Write X to JSON file
+            """
+            with open(self.root_path / self.child_path / filename, 'w', encoding='utf-8') as outfile:
+                try:
+                    json.dump(X, filename, ensure_ascii=False, indent=4, **self.kwargs)
+                    if self.verbose: print(f"Write to: {self.root_path / self.child_path / filename}")
+                except Exception as exc:
+                    print(exc) 

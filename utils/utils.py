@@ -1,16 +1,17 @@
-import nltk, re, string, typing        # for type hints
+import nltk, re, string        # for type hints
+from string import punctuation
 from nltk.corpus import stopwords
 #from nltk.cluster.util import cosine_distance
 from nltk.stem.snowball import SnowballStemmer
 #from pydantic import BaseModel
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, RegexpTokenizer
 import numpy as np
 import networkx as nx
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics.pairwise import cosine_similarity, linear_kernel #, rbf_kernel 
 from sklearn.feature_extraction.text import TfidfVectorizer
 #from sklearn.metrics import pairwise_distances
-
+from typing import List
 import gensim
 from gensim.models import FastText, Phrases, phrases, TfidfModel
 from gensim.utils import simple_preprocess
@@ -37,60 +38,138 @@ class clean_text(BaseEstimator, TransformerMixin):
         self.kwargs = kwargs
 
         self.stop_words = set(stopwords.words(language))
-        if list(self.kwargs.keys())[0] == 'without_stopwords':
+        print(f'Using {len(self.stop_words)} stop words.')
+
+        if 'without_stopwords' in list(self.kwargs.keys()):
             self.stop_words = self._remove_stopwords(self.kwargs)
                 
-        if list(self.kwargs.keys())[0]  == 'new_stopwords':
+        if 'with_stopwords' in list(self.kwargs.keys()):
             self.stop_words = self._add_stopwords(self.kwargs) 
 
         self.stemmer = SnowballStemmer(language)
         self.nlp = spacy.load('de_core_news_lg')
+        self.repl_dict = file.YAMLservice(child_path = "config").doRead(filename = "preproc_txt.yaml")
     
-    def _add_stopwords(self, new_stopwords : list):
-        if self.verbose: print(f"Added {len(new_stopwords)} stop word(s).")
+    def _add_stopwords(self, new_stopwords : list)-> set:
+        """
+        Change stopword list
+
+        Args:
+            new_stopwords (list): _description_
+
+        Returns:
+            set: _description_
+        """
+        old = self.stop_words.copy()
         self.stop_words = self.stop_words.union(set(new_stopwords))
+        if self.verbose: print(f"Added {len(self.stop_words)-len(old)} stopword(s).")
         return self.stop_words
 
-    def _remove_stopwords(self, without_stopwords : list):
-        if self.verbose: print(f"Removed {len(without_stopwords)} stop word(s).")
+    def _remove_stopwords(self, without_stopwords : list)-> set:
+        """
+        Change stopword list
+
+        Args:
+            without_stopwords (list): _description_
+
+        Returns:
+            set: _description_
+        """
+        old = self.stop_words.copy()
         self.stop_words = self.stop_words.difference(set(without_stopwords))
+        if self.verbose: print(f"Removed {len(old)-len(self.stop_words)} stopword(s).")
         return self.stop_words
+
+    def untokenize(self, text: List[str])-> str:
+        """Revert tokenization: list of strings -> string"""
+        return " ".join([w for w in text])
+
+    def count_stopwords(self):
+        print(f'{len(self.stop_words)} used.')
+ 
+    def remove_whitespace(self, text : str)-> str:
+        return  " ".join(text.split())
+
+    def remove_punctuation(self, text: str)-> str:    
+       return [re.sub(f"[{re.escape(punctuation)}]", "", token) for token in text]
+
+    def remove_numbers(self, text: str)-> str:    
+       return [re.sub(r"\b[0-9]+\b\s*", "", token) for token in text]
+
+    def remove_stopwords(self, text : str)-> str:
+        return [token for token in text if token not in self.stop_words]
+
+    def remove_digits(self, text: str)-> str: 
+        """Remove digits instead of any number, e.g. keep dates"""
+        return [token for token in text if not token.isdigit()]
+
+    def remove_non_alphabetic(self, text: str)-> str: 
+        """Remove non-alphabetic characters"""
+        return [token for token in text if token.isalpha()]
+    
+    def remove_spec_char_punct(self, text: str)-> str: 
+        """Remove all special characters and punctuation"""
+        return [re.sub(r"[^A-Za-z0-9\s]+", "", token) for token in text]
+
+    def remove_short_tokens(self, text: str, token_length : int = 2)-> str: 
+        """Remove short tokens"""
+        return [token for token in text if len(token) > token_length]
+
+    def remove_punct(self, text: str)-> str:
+        tokenizer = RegexpTokenizer(r"\w+")
+        lst = tokenizer.tokenize(' '.join(text))
+        # table = str.maketrans('', '', string.punctuation)          # punctuation
+        # lst = [w.translate(table) for w in text]     # Umlaute
+        return lst
+
+    def replace_umlaut(self, text : str) -> str:
+        """Replace special German umlauts (vowel mutations) from text"""
+        vowel_char_map = {ord(k): v for k,v in self.repl_dict['replace']['german']['umlaute'].items()}  # use unicode value of Umlaut
+        return [token.translate(vowel_char_map) for token in text]
 
     def fit(self, X : pd.DataFrame, y : pd.Series = None):
         return self    
     
-    def transform(self, X : pd.DataFrame)-> pd.DataFrame:    
+    def transform(self, X : pd.Series, **param)-> pd.Series:    
         corpus = deepcopy(X)
-        cleaned_text = []
-        # Preprocess:
-        for se in tqdm(corpus.values.tolist(), total=corpus.shape[0]):
+        corpus_0 = corpus.str.lower()
+        corpus_1 = corpus_0.apply(self.remove_whitespace)
+        corpus_2 = corpus_1.apply(lambda X: word_tokenize(X))
+        corpus_3 = corpus_2.apply(self.remove_stopwords)
+        corpus_4 = corpus_3.apply(self.remove_punct)
+        corpus_5 = corpus_4.apply(self.remove_numbers)
+        corpus_6 = corpus_5.apply(self.remove_digits)
+        corpus_7 = corpus_6.apply(self.remove_non_alphabetic)
+        corpus_8 = corpus_7.apply(self.remove_spec_char_punct)
+        corpus_9 = corpus_8.apply(self.replace_umlaut)   # check!!
+        corpus_10 = corpus_9.apply(self.remove_short_tokens, token_length=3)
+        corpus_11 = corpus_10.apply(self.untokenize)
+        return corpus_11 
 
-            #tokens = word_tokenize(se)
-            tokens = [token.text for token in self.nlp(se)]
+    # def transform(self, X : pd.DataFrame)-> pd.DataFrame:    
+    #     corpus = deepcopy(X)
+    #     cleaned_text = []
+    #     # Preprocess:
+    #     for se in tqdm(corpus.values.tolist(), total=corpus.shape[0]):
 
-            # convert to lower case
-            tokens = [w.lower() for w in tokens]
+    #         tokens = word_tokenize(se)
+    #         #tokens = [token.text for token in self.nlp(se)]
 
-            # remove punctuation from each word and replace Umlaute
-            table = str.maketrans('', '', string.punctuation)          # punctuation
-            stripped = [replace_umlaut(w.translate(table)) for w in tokens]     # Umlaute
+    #         # convert to lower case
+    #         tokens = [w.lower() for w in tokens]
 
-            # remove remaining tokens that are not alphabetic
-            words = [word for word in stripped if word.isalpha()]   
+    #         # remove punctuation from each word and replace Umlaute
+    #         table = str.maketrans('', '', string.punctuation)          # punctuation
+    #         stripped = [w.translate(table) for w in tokens]     # Umlaute
+
+    #         # remove remaining tokens that are not alphabetic
+    #         words = [word for word in stripped if word.isalpha()]   
             
-            # filter out stop words and apply stemming:
-            words = [self.stemmer.stem(w)  for w in words if not w in self.stop_words]
-            cleaned_text.append(' '.join(words))
-        return pd.DataFrame(cleaned_text, columns=['text']) 
+    #         # filter out stop words and apply stemming:
+    #         words = [self.stemmer.stem(w)  for w in words if not w in self.stop_words]
+    #         cleaned_text.append(' '.join(words))
+    #     return pd.DataFrame(cleaned_text, columns=['text']) 
 
-
-def replace_umlaut(mystring : str) -> str:
-    """
-    Replace special German umlauts (vowel mutations) from text
-    """
-    repl_dict = file.YAMLservice(child_path = "config").doRead(filename = "preproc_txt.yaml")
-    vowel_char_map = {ord(k): v for k,v in repl_dict['replace']['german']['umlaute'].items()}  # use unicode value of Umlaut
-    return mystring.translate(vowel_char_map)
 
 
 class text_tools:

@@ -1,5 +1,7 @@
 
 from gzip import BadGzipFile
+from itertools import count, groupby
+from tokenize import group
 import spacy
 from sklearn.pipeline import Pipeline
 from copy import deepcopy
@@ -22,12 +24,19 @@ from utils import utils as util
 from services import file
 from pathlib import Path
 
-pd.set_option('display.max_colwidth', 30
+pd.set_option('display.max_colwidth', 30)
+pd.set_option('display.max_rows', 500)
 
 reload(util)
 reload(file)
 
-csv = file.CSVService(path="out_df.csv",
+js = file.JSONservice(root_path=Path.home() / "Documents/Arbeit/Allianz/AZVers")
+german_stopwords = js.doRead(filename='stopwords.json')
+
+
+file_name = "Claim descr.csv"
+
+csv = file.CSVService(path=file_name,
                       root_path=Path.home() / "Documents/Arbeit/Allianz/AZVers", delimiter=",")
 
 df = csv.doRead()
@@ -36,12 +45,106 @@ print(df.shape)
 df.head(1000)
 df.info(verbose=True)
 
+col_sel = ['id_sch','invoice_item_id', 'dl_gewerk','firma','de1_eks_postext', 'yylobbez', 'erartbez', 'hsp_eigen', 'hsp_prodbez', 'sartbez', 'sursbez', 'schilderung', 'de1_eks_postext']
+
+corpus = df[col_sel]
 corpus = df['de1_eks_postext']
+corpus.head(100)
 
-for z, i in enumerate(corpus.values):
-    print(z, i)
+#----------------------------
+# Preprocessing:
+#----------------------------------------------------------------------------
 
-corpus
+reload(util)
+
+cleaner = util.clean_text(language='german', 
+                          without_stopwords=['nicht', 'keine'],
+                          with_stopwords=german_stopwords)
+
+corpus_0 = corpus.str.lower()
+
+# from typing import TypeVar
+
+# PandasDataFrame = TypeVar('pandas.core.frame.DataFrame')
+
+# def remove_whitespace(text : str)-> str:
+#     return  " ".join(text.split())
+
+corpus_1 = corpus_0.apply(cleaner.remove_whitespace)
+
+from nltk import word_tokenize
+
+corpus_2 = corpus_1.apply(lambda X: word_tokenize(X))
+corpus_2.head(100)
+
+corpus_3 = corpus_2.apply(cleaner.remove_stopwords)
+corpus_3.head(100)
+
+#from nltk.tokenize import RegexpTokenizer
+
+# def remove_punct(text):
+    
+#     tokenizer = RegexpTokenizer(r"\w+")
+#     lst=tokenizer.tokenize(' '.join(text))
+#     # remove punctuation from each word and replace Umlaute
+#     # table = str.maketrans('', '', string.punctuation)          # punctuation
+#     # lst = [w.translate(table) for w in text]     # Umlaute
+
+#     return lst
+
+
+reload(util)
+# text = corpus_3.tolist()[1090]
+# print(text) 
+
+# remove_punct(text)
+
+corpus_4 = corpus_3.apply(cleaner.remove_punct)
+corpus_4.head(20)
+
+text = corpus_4.tolist()[1090]
+print(text) 
+
+corpus_5 = corpus_4.apply(cleaner.remove_numbers)
+corpus_5.head(20)
+
+corpus_6 = corpus_5.apply(cleaner.remove_digits)
+corpus_6.head(20)
+
+corpus_7 = corpus_6.apply(cleaner.remove_non_alphabetic)
+corpus_7.head(20)
+
+text = corpus_7.tolist()[1090]
+print(text) 
+
+corpus_8 = corpus_7.apply(cleaner.remove_spec_char_punct)
+corpus_8.head(20)
+
+corpus_9 = corpus_8.apply(cleaner.replace_umlaut)   # klappt noch nich!!!!!!!!
+corpus_9.head(20)
+
+corpus_10 = corpus_9.apply(cleaner.remove_short_tokens, token_length=4)
+#corpus_10 = corpus_9.apply(lambda x: cleaner.remove_short_tokens(x, 3))
+corpus_10.head(20)
+
+text = corpus_10.tolist()[1090]
+print(text) 
+
+corpus_10.apply(cleaner.untokenize).head(20)
+
+
+#--------------------------------------------------------------------------------------------
+
+
+
+
+
+#corpus.groupby(['id_sch']).agg({'invoice_item_id': 'count'}).rename(columns={'invoice_item_id': '#invoices'})
+
+# for z, i in enumerate(corpus.values):
+#     print(z, i)
+
+# corpus
 
 
 #tokens = word_tokenize(se[0])
@@ -49,13 +152,14 @@ corpus
 
 reload(util)
 
-cleaner = util.clean_text(language='german', without_stopwords=['nicht', 'keine'])
+cleaner = util.clean_text(language='german', 
+                          without_stopwords=['nicht', 'keine'],
+                          with_stopwords=german_stopwords)
 
-
-corpus_cl = cleaner.fit_transform(corpus.head(1000))
+corpus_cl = cleaner.fit_transform(corpus)
 corpus_cl
 
-corpus_train = corpus_cl['text'].tolist()
+corpus_train = corpus_cl.tolist()
 corpus_train
 
 for z,(i,k) in enumerate(zip(corpus_train, corpus.head(1000).tolist())):
@@ -144,7 +248,7 @@ for mail in test:
 my_lemma
 
 
-
+################################################################################################################################
 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
@@ -157,29 +261,36 @@ batch_size = 128
 
 reload(util)
 
-#cleaner = util.clean_text(language='german', without_stopwords=['nicht', 'keine'])
+cleaner = util.clean_text(language='german', 
+                          without_stopwords=['nicht', 'keine'],
+                          with_stopwords=german_stopwords)
 
 
-#corpus_cl = cleaner.fit_transform(corpus.head(5000))
-#corpus_cl
+corpus_cl = cleaner.fit_transform(corpus)
+corpus_cl
 
-#corpus_train = corpus_cl['text'].tolist()
+corpus_train = corpus_cl.tolist()
+corpus_train
+
+for z,(i,k) in enumerate(zip(corpus_cl.head(1000).tolist(), corpus.head(1000).tolist())):
+   print(z, i,"=======",k)
 
 
 print("Extracting tf features for LDA...")
-vec = CountVectorizer(lowercase=True, ngram_range=(5, 10),
+vec = CountVectorizer(lowercase=True, ngram_range=(1, 1),
                 token_pattern = '(?u)(?:(?!\d)\w)+\\w+',
-                analyzer = 'char_wb',  #char_wb
+                analyzer = 'word',  #char_wb
                 tokenizer = None,
                 stop_words = None #"english
                 )
 
-vec.stop_words
-
-bag_of_words_vec = vec.fit_transform(corpus_cl['text'])
+bag_of_words_vec = vec.fit_transform(corpus_cl)
 
 feature_names = vec.get_feature_names_out()
 feature_names
+
+for i in feature_names:
+ print(i)
 
 lda = LatentDirichletAllocation(
     n_components=n_topics,
