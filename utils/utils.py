@@ -36,23 +36,25 @@ class clean_text(BaseEstimator, TransformerMixin):
     def __init__(self, verbose : bool = True, language : str = 'german', **kwargs):
         self.verbose = verbose
         self.kwargs = kwargs
-
         self.stop_words = set(stopwords.words(language))
-        print(f'Using {len(self.stop_words)} stop words.')
+        if self.verbose: print(f'Using {len(self.stop_words)} stop words.')
+        self.german_stopwords = file.JSONservice(child_path = "data", verbose=False).doRead(filename='stopwords.json')
+        if self.verbose: print(f'Adding custom German stop words...')
+        self.stop_words = self._add_stopwords(self.german_stopwords) 
 
         if 'without_stopwords' in list(self.kwargs.keys()):
-            self.stop_words = self._remove_stopwords(self.kwargs)
+            self.stop_words = self._remove_stopwords(self.kwargs.get('without_stopwords', ''))
                 
         if 'with_stopwords' in list(self.kwargs.keys()):
-            self.stop_words = self._add_stopwords(self.kwargs) 
+            self.stop_words = self._add_stopwords(self.kwargs.get('with_stopwords', '')) 
 
-        self.stemmer = SnowballStemmer(language)
+        #self.stemmer = SnowballStemmer(language)
         self.nlp = spacy.load('de_core_news_lg')
-        self.repl_dict = file.YAMLservice(child_path = "config").doRead(filename = "preproc_txt.yaml")
-    
+        self.umlaut = file.YAMLservice(child_path = "config").doRead(filename = "preproc_txt.yaml")
+
     def _add_stopwords(self, new_stopwords : list)-> set:
         """
-        Change stopword list
+        Change stopword list. Include into stopword list
 
         Args:
             new_stopwords (list): _description_
@@ -67,7 +69,7 @@ class clean_text(BaseEstimator, TransformerMixin):
 
     def _remove_stopwords(self, without_stopwords : list)-> set:
         """
-        Change stopword list
+        Change stopword list. Exclude from stopwords
 
         Args:
             without_stopwords (list): _description_
@@ -124,27 +126,37 @@ class clean_text(BaseEstimator, TransformerMixin):
 
     def replace_umlaut(self, text : str) -> str:
         """Replace special German umlauts (vowel mutations) from text"""
-        vowel_char_map = {ord(k): v for k,v in self.repl_dict['replace']['german']['umlaute'].items()}  # use unicode value of Umlaut
+        vowel_char_map = {ord(k): v for k,v in self.umlaut['replace']['german']['umlaute'].items()}  # use unicode value of Umlaut
         return [token.translate(vowel_char_map) for token in text]
+
+    def stem(self, text : str)-> str:
+        return [self.stemmer.stem(w)  for w in text]
+    
+    def lemmatize(self, text : str)-> str:
+        text = self.untokenize(text)
+        return [token.lemma_ for token in self.nlp(text)]
 
     def fit(self, X : pd.DataFrame, y : pd.Series = None):
         return self    
     
     def transform(self, X : pd.Series, **param)-> pd.Series:    
         corpus = deepcopy(X)
-        corpus_0 = corpus.str.lower()
-        corpus_1 = corpus_0.apply(self.remove_whitespace)
-        corpus_2 = corpus_1.apply(lambda X: word_tokenize(X))
-        corpus_3 = corpus_2.apply(self.remove_stopwords)
-        corpus_4 = corpus_3.apply(self.remove_punct)
-        corpus_5 = corpus_4.apply(self.remove_numbers)
-        corpus_6 = corpus_5.apply(self.remove_digits)
-        corpus_7 = corpus_6.apply(self.remove_non_alphabetic)
-        corpus_8 = corpus_7.apply(self.remove_spec_char_punct)
-        corpus_9 = corpus_8.apply(self.replace_umlaut)   # check!!
-        corpus_10 = corpus_9.apply(self.remove_short_tokens, token_length=3)
-        corpus_11 = corpus_10.apply(self.untokenize)
-        return corpus_11 
+        corpus = corpus.str.lower()
+        corpus = corpus.apply(self.remove_whitespace)
+        corpus = corpus.apply(lambda x: word_tokenize(x))
+        corpus = corpus.apply(self.remove_stopwords)
+        corpus = corpus.apply(self.remove_punct)
+        corpus = corpus.apply(self.remove_numbers)
+        corpus = corpus.apply(self.remove_digits)
+        corpus = corpus.apply(self.remove_non_alphabetic)
+        corpus = corpus.apply(self.replace_umlaut)   
+        corpus = corpus.apply(self.remove_spec_char_punct)
+        corpus = corpus.apply(self.remove_short_tokens, token_length=3)
+        #corpus = corpus.apply(self.stem)
+        corpus = corpus.apply(self.lemmatize)   # makes preprocessing very slow though
+        corpus = corpus.apply(self.untokenize)
+        if self.verbose: print("Finished preprocessing.")
+        return corpus 
 
     # def transform(self, X : pd.DataFrame)-> pd.DataFrame:    
     #     corpus = deepcopy(X)
@@ -207,7 +219,7 @@ class text_tools:
 
 class compute_similarity_matrix(BaseEstimator, TransformerMixin):
     """
-    Calculate similarity matrix
+    Calculate similarity matrix / adjacency matrix
     """ 
     def __init__(self, verbose : bool = True):
         self.verbose = verbose

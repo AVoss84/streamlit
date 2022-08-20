@@ -1,5 +1,5 @@
 
-from gzip import BadGzipFile
+#from gzip import BadGzipFile
 from itertools import count, groupby
 from tokenize import group
 import spacy
@@ -30,8 +30,8 @@ pd.set_option('display.max_rows', 500)
 reload(util)
 reload(file)
 
-js = file.JSONservice(root_path=Path.home() / "Documents/Arbeit/Allianz/AZVers")
-german_stopwords = js.doRead(filename='stopwords.json')
+# js = file.JSONservice(child_path='data')
+# german_stopwords = js.doRead(filename='stopwords.json')
 
 
 file_name = "Claim descr.csv"
@@ -47,7 +47,7 @@ df.info(verbose=True)
 
 col_sel = ['id_sch','invoice_item_id', 'dl_gewerk','firma','de1_eks_postext', 'yylobbez', 'erartbez', 'hsp_eigen', 'hsp_prodbez', 'sartbez', 'sursbez', 'schilderung', 'de1_eks_postext']
 
-corpus = df[col_sel]
+#corpus = df[col_sel]
 corpus = df['de1_eks_postext']
 corpus.head(100)
 
@@ -59,7 +59,17 @@ reload(util)
 
 cleaner = util.clean_text(language='german', 
                           without_stopwords=['nicht', 'keine'],
-                          with_stopwords=german_stopwords)
+                          with_stopwords=['zzgl'])
+
+corpus_cl = cleaner.fit_transform(corpus)
+corpus_cl.head(20)
+
+#corpus_train = corpus_cl.tolist()
+#corpus_train
+
+for z,(i,k) in enumerate(zip(corpus_cl.head(1000).tolist(), corpus.head(1000).tolist())):
+   print(z, i,"=======",k)
+
 
 corpus_0 = corpus.str.lower()
 
@@ -75,10 +85,10 @@ corpus_1 = corpus_0.apply(cleaner.remove_whitespace)
 from nltk import word_tokenize
 
 corpus_2 = corpus_1.apply(lambda X: word_tokenize(X))
-corpus_2.head(100)
+corpus_2.head(20)
 
 corpus_3 = corpus_2.apply(cleaner.remove_stopwords)
-corpus_3.head(100)
+corpus_3.head(20)
 
 #from nltk.tokenize import RegexpTokenizer
 
@@ -117,11 +127,14 @@ corpus_7.head(20)
 text = corpus_7.tolist()[1090]
 print(text) 
 
-corpus_8 = corpus_7.apply(cleaner.remove_spec_char_punct)
+corpus_8 = corpus_7.apply(cleaner.replace_umlaut)   # klappt noch nich!!!!!!!!
 corpus_8.head(20)
 
-corpus_9 = corpus_8.apply(cleaner.replace_umlaut)   # klappt noch nich!!!!!!!!
+corpus_9 = corpus_8.apply(cleaner.remove_spec_char_punct)
 corpus_9.head(20)
+
+text = corpus_9.tolist()[19]
+print(text) 
 
 corpus_10 = corpus_9.apply(cleaner.remove_short_tokens, token_length=4)
 #corpus_10 = corpus_9.apply(lambda x: cleaner.remove_short_tokens(x, 3))
@@ -130,13 +143,42 @@ corpus_10.head(20)
 text = corpus_10.tolist()[1090]
 print(text) 
 
-corpus_10.apply(cleaner.untokenize).head(20)
+#corpus_11 = corpus_10.apply(cleaner.stem)
+#corpus_11.head(20)
+
+corpus_11 = corpus_10.apply(cleaner.untokenize)
+corpus_11.head(20)
+
+text = corpus_11.tolist()[1090]
+text
+
+nlp = spacy.load('de_core_news_lg')
+
+[nlp(token).lemma_ for token in text]
+
+doc = nlp(text)
+
+[token.lemma_ for token in nlp(text)]
+
+doc = nlp(document)
+#print(doc.text)     # orig.
+cleaned_text = []
+for token in doc:         
+    #my_token = token.text.lower()
+    my_token = token.lemma_
 
 
+mails=['Hallo. Ich spielte am frühen Morgen und ging dann zu einem Freund. Auf Wiedersehen', 
+'Guten Tag Ich mochte Bälle und will etwas kaufen. Tschüss']
+
+mails_lemma = []
+
+for mail in mails:
+     doc = nlp(mail)
+     result = ' '.join([x.lemma_ for x in doc]) 
+     mails_lemma.append(result)
+mails_lemma     
 #--------------------------------------------------------------------------------------------
-
-
-
 
 
 #corpus.groupby(['id_sch']).agg({'invoice_item_id': 'count'}).rename(columns={'invoice_item_id': '#invoices'})
@@ -194,7 +236,6 @@ sent = iter(documents)
 document = next(sent)
 document
 
-
 stop_words = set(stopwords.words('german'))
 
 all_cleaned = []
@@ -248,49 +289,55 @@ for mail in test:
 my_lemma
 
 
+# TOPIC
 ################################################################################################################################
 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.feature_extraction.text import HashingVectorizer   # use integer hash instead of actual token in memory
 
 #n_samples = 2000
 #n_features = 1000
-n_topics = 20
+n_topics = 10
 #n_top_words = 20
 batch_size = 128
 
 reload(util)
 
 cleaner = util.clean_text(language='german', 
-                          without_stopwords=['nicht', 'keine'],
-                          with_stopwords=german_stopwords)
+                          without_stopwords=['nicht', 'keine'])
+
+#'zzgl' in cleaner.stop_words
+#'nicht' in cleaner.stop_words
 
 
 corpus_cl = cleaner.fit_transform(corpus)
-corpus_cl
+corpus_cl.head(20)
 
-corpus_train = corpus_cl.tolist()
-corpus_train
+#corpus_train = corpus_cl.tolist()
+#corpus_train
 
 for z,(i,k) in enumerate(zip(corpus_cl.head(1000).tolist(), corpus.head(1000).tolist())):
    print(z, i,"=======",k)
 
 
 print("Extracting tf features for LDA...")
-vec = CountVectorizer(lowercase=True, ngram_range=(1, 1),
-                token_pattern = '(?u)(?:(?!\d)\w)+\\w+',
-                analyzer = 'word',  #char_wb
-                tokenizer = None,
-                stop_words = None #"english
+vec = CountVectorizer(#lowercase=True, 
+                ngram_range=(1, 1),
+                #token_pattern = '(?u)(?:(?!\d)\w)+\\w+',
+                analyzer = 'word',  #char_wb, word
+                #tokenizer = None,
+                min_df = 0.01, 
+                stop_words = cleaner.stop_words #"english
                 )
 
 bag_of_words_vec = vec.fit_transform(corpus_cl)
 
 feature_names = vec.get_feature_names_out()
-feature_names
 
 for i in feature_names:
  print(i)
+
 
 lda = LatentDirichletAllocation(
     n_components=n_topics,
@@ -300,8 +347,8 @@ lda = LatentDirichletAllocation(
     random_state=0
 )
 
-
 LDA = lda.fit(bag_of_words_vec)
+
 
 def display_topics(model, feature_names, no_top_words):
     for topic_idx, topic in enumerate(model.components_):
@@ -309,7 +356,7 @@ def display_topics(model, feature_names, no_top_words):
         print(" ".join([feature_names[i]
                         for i in topic.argsort()[:-no_top_words - 1:-1]]))
 
-no_top_words = 20
+no_top_words = 8
 display_topics(LDA, feature_names, no_top_words)
 
 #-------------------------------------------------------------------------------------------------------
@@ -317,7 +364,7 @@ display_topics(LDA, feature_names, no_top_words)
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
-no_features = 1000
+no_features = 100
 
 # NMF is able to use tf-idf
 tfidf_vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, max_features=no_features, stop_words=None)
