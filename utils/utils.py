@@ -8,8 +8,11 @@ from nltk.tokenize import word_tokenize, RegexpTokenizer
 import numpy as np
 import networkx as nx
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.naive_bayes import BernoulliNB
+from sklearn.pipeline import Pipeline
 from sklearn.metrics.pairwise import cosine_similarity, linear_kernel #, rbf_kernel 
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+#from sklearn.feature_extraction.text import HashingVectorizer   # use integer hash instead of actual token in memory
 #from sklearn.metrics import pairwise_distances
 from typing import List
 import gensim
@@ -21,7 +24,6 @@ from gensim.models.word2vec import Word2Vec
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from pprint import pprint
 from gensim.parsing.preprocessing import stem_text, strip_multiple_whitespaces, strip_short, strip_non_alphanum, strip_punctuation, strip_numeric
-
 from copy import deepcopy
 from tqdm.auto import tqdm
 import pandas as pd
@@ -48,7 +50,7 @@ class clean_text(BaseEstimator, TransformerMixin):
         if 'with_stopwords' in list(self.kwargs.keys()):
             self.stop_words = self._add_stopwords(self.kwargs.get('with_stopwords', '')) 
 
-        #self.stemmer = SnowballStemmer(language)
+        self.stemmer = SnowballStemmer(language)
         self.nlp = spacy.load('de_core_news_lg')
         self.umlaut = file.YAMLservice(child_path = "config").doRead(filename = "preproc_txt.yaml")
 
@@ -139,7 +141,7 @@ class clean_text(BaseEstimator, TransformerMixin):
     def fit(self, X : pd.DataFrame, y : pd.Series = None):
         return self    
     
-    def transform(self, X : pd.Series, **param)-> pd.Series:    
+    def transform(self, X : pd.Series, **param)-> pd.DataFrame:    
         corpus = deepcopy(X)
         corpus = corpus.str.lower()
         corpus = corpus.apply(self.remove_whitespace)
@@ -153,35 +155,10 @@ class clean_text(BaseEstimator, TransformerMixin):
         corpus = corpus.apply(self.remove_spec_char_punct)
         corpus = corpus.apply(self.remove_short_tokens, token_length=3)
         #corpus = corpus.apply(self.stem)
-        corpus = corpus.apply(self.lemmatize)   # makes preprocessing very slow though
+        #corpus = corpus.apply(self.lemmatize)   # makes preprocessing very slow though
         corpus = corpus.apply(self.untokenize)
         if self.verbose: print("Finished preprocessing.")
-        return corpus 
-
-    # def transform(self, X : pd.DataFrame)-> pd.DataFrame:    
-    #     corpus = deepcopy(X)
-    #     cleaned_text = []
-    #     # Preprocess:
-    #     for se in tqdm(corpus.values.tolist(), total=corpus.shape[0]):
-
-    #         tokens = word_tokenize(se)
-    #         #tokens = [token.text for token in self.nlp(se)]
-
-    #         # convert to lower case
-    #         tokens = [w.lower() for w in tokens]
-
-    #         # remove punctuation from each word and replace Umlaute
-    #         table = str.maketrans('', '', string.punctuation)          # punctuation
-    #         stripped = [w.translate(table) for w in tokens]     # Umlaute
-
-    #         # remove remaining tokens that are not alphabetic
-    #         words = [word for word in stripped if word.isalpha()]   
-            
-    #         # filter out stop words and apply stemming:
-    #         words = [self.stemmer.stem(w)  for w in words if not w in self.stop_words]
-    #         cleaned_text.append(' '.join(words))
-    #     return pd.DataFrame(cleaned_text, columns=['text']) 
-
+        return corpus.to_frame(name="text") 
 
 
 class text_tools:
@@ -539,3 +516,56 @@ class embeddings(BaseEstimator, TransformerMixin):
         vectors = self.generate_dataframe(vectors, self.columns[0])
         self.word_embedding_names = vectors.columns
         return vectors
+
+
+
+class make_nb_feat(BaseEstimator, TransformerMixin):
+    
+  """
+  Create Naive Bayes like document embeddings
+  """
+
+  def __init__(self, verbose : bool = True, pipeline = None, **vect_param):
+        
+      self.verbose = verbose  
+      self.pipeline = pipeline
+      if verbose : print('-- Creating Naive Bayes like document embeddings --\n')  
+      if self.pipeline is None:      
+        self.pipeline = Pipeline([
+                #('cleaner', utils.clean_text(verbose=False)),
+                ('vectorizer', CountVectorizer(lowercase=True, #ngram_range=(2, 2),
+                                    #token_pattern = '(?u)(?:(?!\d)\w)+\\w+', 
+                                        analyzer = 'word',  #char_wb
+                                        #tokenizer = None, 
+                                        stop_words = None, #"english"
+                                        **vect_param          
+                                        )),  
+                ('model', BernoulliNB(alpha=1))
+                ])
+
+    
+  def fit(self, X, y):
+        
+      self.pipeline.fit(X, y)
+      self.pipeline.named_steps['vectorizer'].get_stop_words()
+      self.vocab_ = self.pipeline.named_steps['vectorizer'].get_feature_names()
+      self.vectorizer = self.pipeline.named_steps['vectorizer']
+      self.model = self.pipeline.named_steps['model']
+      dt = self.vectorizer.transform(X)   # train set
+      self.doc_term_mat_train = dt.toarray()
+      self.log_cond_distr_train = pd.DataFrame(self.model.feature_log_prob_, index=[str(i) for i in self.model.classes_], columns=self.vocab_)
+      #self.joint_abs_freq_train = pd.DataFrame(self.model.feature_count_, index=[str(i) for i in self.model.classes_], columns=self.vocab_)
+      return self
+
+  def transform(self, X):
+
+      dt = self.vectorizer.transform(X)
+      self.doc_term_mat = dt.toarray()
+      features_class = pd.DataFrame()
+      for c in self.model.classes_:
+            # log class cond. prob
+            feat_c = np.sum(self.doc_term_mat * self.log_cond_distr_train.loc[str(c),:].values, axis = 1)   # broadcast
+            # Joint abs. freq
+            #feat_c = np.sum(self.doc_term_mat * self.joint_abs_freq_train.loc[str(c),:].values, axis = 1)   # broadcast
+            features_class['level'+str(c)] = feat_c
+      return features_class 

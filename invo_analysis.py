@@ -45,11 +45,22 @@ print(df.shape)
 df.head(1000)
 df.info(verbose=True)
 
-col_sel = ['id_sch','invoice_item_id', 'dl_gewerk','firma','de1_eks_postext', 'yylobbez', 'erartbez', 'hsp_eigen', 'hsp_prodbez', 'sartbez', 'sursbez', 'schilderung', 'de1_eks_postext']
+col_sel = ['id_sch','invoice_item_id', 'dl_gewerk','firma', 'yylobbez', 'erartbez', 'hsp_eigen', 'hsp_prodbez', 'sartbez', 'sursbez', 'schilderung', 'de1_eks_postext']
+col_sel = ['dl_gewerk','de1_eks_postext']
 
-#corpus = df[col_sel]
-corpus = df['de1_eks_postext']
+corpus = df[col_sel]
+#corpus = df['de1_eks_postext']
 corpus.head(100)
+
+# Descriptive stat.:
+corpus.groupby(['id_sch']).agg({'invoice_item_id': 'count'}).rename(columns={'invoice_item_id': '#invoices'})
+
+corpus.groupby(['dl_gewerk']).agg({'de1_eks_postext': 'count'}).rename(columns={'de1_eks_postext': 'totals'}).sort_values(by='totals', ascending=False).reset_index()
+
+
+corpus.groupby(['dl_gewerk','sursbez']).agg({'de1_eks_postext': 'count'}).rename(columns={'de1_eks_postext': 'totals'}).sort_values(by='totals', ascending=False)
+
+
 
 #----------------------------
 # Preprocessing:
@@ -299,28 +310,42 @@ from sklearn.feature_extraction.text import HashingVectorizer   # use integer ha
 #n_samples = 2000
 #n_features = 1000
 n_topics = 10
-#n_top_words = 20
+n_top_words = 10
 batch_size = 128
 
 reload(util)
 
-cleaner = util.clean_text(language='german', 
-                          without_stopwords=['nicht', 'keine'])
+cleaner = util.clean_text(language='german', without_stopwords=['nicht', 'keine'])
 
-#'zzgl' in cleaner.stop_words
-#'nicht' in cleaner.stop_words
+corpus_cl = cleaner.fit_transform(corpus['de1_eks_postext'])
 
+corpus_cl['y'] = corpus['dl_gewerk']
 
-corpus_cl = cleaner.fit_transform(corpus)
 corpus_cl.head(20)
 
-#corpus_train = corpus_cl.tolist()
-#corpus_train
+corpus_cl.shape
+
+
 
 for z,(i,k) in enumerate(zip(corpus_cl.head(1000).tolist(), corpus.head(1000).tolist())):
    print(z, i,"=======",k)
 
 
+pipeline = Pipeline([
+   #('cleaner', utils.clean_text(verbose=False)),
+   ('vectorizer', CountVectorizer(#lowercase=True, 
+                ngram_range=(1, 1),
+                #token_pattern = '(?u)(?:(?!\d)\w)+\\w+',
+                analyzer = 'word',  #char_wb, word
+                #tokenizer = None,
+                min_df = 0.01, 
+                stop_words = cleaner.stop_words #"english
+                )),  
+    
+   ('model', BernoulliNB(alpha = 1))
+])
+
+#
 print("Extracting tf features for LDA...")
 vec = CountVectorizer(#lowercase=True, 
                 ngram_range=(1, 1),
@@ -356,10 +381,81 @@ def display_topics(model, feature_names, no_top_words):
         print(" ".join([feature_names[i]
                         for i in topic.argsort()[:-no_top_words - 1:-1]]))
 
-no_top_words = 8
+#
 display_topics(LDA, feature_names, no_top_words)
 
 #-------------------------------------------------------------------------------------------------------
+
+# # %%
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.preprocessing import LabelEncoder 
+from sklearn.naive_bayes import BernoulliNB
+import numpy as np
+import pandas as pd
+
+pipeline = Pipeline([
+   #('cleaner', utils.clean_text(verbose=False)),
+   ('vectorizer', CountVectorizer(lowercase=True, #ngram_range=(2, 2),
+                       #token_pattern = '(?u)(?:(?!\d)\w)+\\w+', 
+                        analyzer = 'word',  #char_wb
+                        tokenizer = None, 
+                        stop_words = None #"english"
+                        )),  
+    
+   ('model', BernoulliNB(alpha = 1))
+])
+
+
+le = LabelEncoder()
+
+corpus_cl['y_enc'] = le.fit_transform(corpus_cl['y'].tolist())
+corpus_cl.head(10)
+
+y = corpus_cl['y_enc']
+X = corpus_cl['text']
+
+pipeline.fit(X, y)
+
+pipeline.named_steps['vectorizer'].get_stop_words()
+vocab = pipeline.named_steps['vectorizer'].get_feature_names()
+print(vocab)
+
+vectorizer = pipeline.named_steps['vectorizer']
+nb = pipeline.named_steps['model']
+
+X = vectorizer.transform(corpus)
+doc_term_mat_train = X.toarray()
+
+joint_abs_freq_train = pd.DataFrame(nb.feature_count_, index=[str(i) for i in nb.classes_], columns=vocab)
+joint_abs_freq_train
+
+yhat = pipeline.predict(corpus)
+
+print(doc_term_mat_train)
+
+joint_abs_freq = nb.feature_count_
+joint_abs_freq
+
+log_cond_distr = pd.DataFrame(nb.feature_log_prob_, index=[str(i) for i in nb.classes_], columns=vocab)
+log_cond_distr
+
+
+nlp_feat = util.make_nb_feat()
+nlp_feat
+
+
+le = LabelEncoder()
+
+corpus_cl['y_enc'] = le.fit_transform(corpus_cl['y'].tolist())
+corpus_cl.head(10)
+
+y = corpus_cl['y_enc']
+X = corpus_cl['text']
+
+nlp_feat.fit(X, y)
+
+#---------------------------------------------------------------------------------------
 
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -382,3 +478,5 @@ nmf = NMF(n_components=no_topics, random_state=1, alpha_W=.1, l1_ratio=.5, init=
 
 display_topics(nmf, tfidf_feature_names, no_top_words)
 
+
+# %%
