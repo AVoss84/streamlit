@@ -10,3 +10,4 @@ typing
 PyYAML
 #pydantic==1.9.1
 spacy==3.4.1
+#!python -m spacy download de_core_news_lg
