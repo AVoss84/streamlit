@@ -326,7 +326,6 @@ corpus_cl.head(20)
 corpus_cl.shape
 
 
-
 for z,(i,k) in enumerate(zip(corpus_cl.head(1000).tolist(), corpus.head(1000).tolist())):
    print(z, i,"=======",k)
 
@@ -394,13 +393,17 @@ from sklearn.naive_bayes import BernoulliNB
 import numpy as np
 import pandas as pd
 
+reload(util)
+
 pipeline = Pipeline([
    #('cleaner', utils.clean_text(verbose=False)),
    ('vectorizer', CountVectorizer(lowercase=True, #ngram_range=(2, 2),
-                       #token_pattern = '(?u)(?:(?!\d)\w)+\\w+', 
-                        analyzer = 'word',  #char_wb
-                        tokenizer = None, 
-                        stop_words = None #"english"
+                ngram_range=(1, 1),
+                #token_pattern = '(?u)(?:(?!\d)\w)+\\w+',
+                analyzer = 'word',  #char_wb, word
+                #tokenizer = None,
+                min_df = 0.01, 
+                stop_words = cleaner.stop_words #"english
                         )),  
     
    ('model', BernoulliNB(alpha = 1))
@@ -424,8 +427,8 @@ print(vocab)
 vectorizer = pipeline.named_steps['vectorizer']
 nb = pipeline.named_steps['model']
 
-X = vectorizer.transform(corpus)
-doc_term_mat_train = X.toarray()
+dt = vectorizer.transform(corpus)
+doc_term_mat_train = dt.toarray()
 
 joint_abs_freq_train = pd.DataFrame(nb.feature_count_, index=[str(i) for i in nb.classes_], columns=vocab)
 joint_abs_freq_train
@@ -441,19 +444,122 @@ log_cond_distr = pd.DataFrame(nb.feature_log_prob_, index=[str(i) for i in nb.cl
 log_cond_distr
 
 
-nlp_feat = util.make_nb_feat()
-nlp_feat
+reload(util)
+
+pipe = CountVectorizer(lowercase=True, #ngram_range=(2, 2),
+                ngram_range=(1, 1),
+                #token_pattern = '(?u)(?:(?!\d)\w)+\\w+',
+                analyzer = 'word',  #char_wb, word
+                #tokenizer = None,
+                min_df = 0.01, 
+                stop_words = cleaner.stop_words #"english
+                        )
+
+pipe = TfidfVectorizer(max_df=0.95, min_df=2, max_features=100, stop_words=cleaner.stop_words )
+
+nlp_feat = util.make_nb_feat(vectorizer=pipe)
+#nlp_feat = util.make_nb_feat(n_features=1000)
+
+pipe = nlp_feat.vectorizer
+pipe.fit_transform(X).shape
+
+features_class = nlp_feat.fit_transform(X, y)
+features_class.shape
+
+print(len(nlp_feat.vocab_))
+print(y.nunique())
 
 
-le = LabelEncoder()
+#--------------------------------------------------------------------------------------
 
-corpus_cl['y_enc'] = le.fit_transform(corpus_cl['y'].tolist())
-corpus_cl.head(10)
+# Train model:
+#
+pipe = TfidfVectorizer(max_df=0.95, min_df=2, max_features=100, stop_words=cleaner.stop_words )
 
-y = corpus_cl['y_enc']
-X = corpus_cl['text']
+emb = pipe.fit_transform(X)
+emb.shape
 
-nlp_feat.fit(X, y)
+# trainer = Pipeline(steps=[
+#     #('embedding', TfidfVectorizer(token_pattern='(?u)(?:(?!\d)\w)+\\w+',
+#     #                              analyzer='word',  # char_wb
+#     #                              stop_words=None)),
+#     ('embedding', util.make_nb_feat(vectorizer=pipe)),
+#     ('adjacency matrix', util.compute_similarity_matrix()),
+#     ('sentence page rank', util.compute_sentence_page_rank())
+# ])
+# #
+# scores = trainer.fit_transform(X,y)
+
+# scores_doc = deepcopy(corpus_cl)
+# scores_doc.shape
+# scores_doc['page rank'] = list(scores.values())
+
+# ranked_sentence = scores_doc.sort_values(by='page rank', ascending=False, na_position='first')
+
+# top_n = 3
+# summarize_text = ranked_sentence.head(top_n)
+
+# print("Top ranked_sentences:\n")
+# for z, i in enumerate(summarize_text['text'].values):
+#     print(z, i, "\n")
+
+
+from sklearn.neighbors import NearestNeighbors
+nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(emb.toarray())
+
+distances, indices = nbrs.kneighbors(emb.toarray())
+distances.shape
+
+adjacency = nbrs.kneighbors_graph(emb.toarray()).toarray()
+
+import networkx as nx
+sentence_similarity_graph = nx.from_numpy_array(adjacency)
+
+scores = nx.pagerank(G = sentence_similarity_graph)    # page rank score
+
+
+# N_UNIVERSES = 5
+# N_PLANES = 10
+# N_DIMS = emb.shape[1]
+
+# np.random.seed(0)
+# planes_l = [np.random.normal(size=(N_DIMS, N_PLANES))
+#             for _ in range(N_UNIVERSES)]
+
+# reload(util)
+
+# emb.shape
+# v = emb.toarray()[0,:]
+# v
+# planes = planes_l[0]
+# planes.shape
+
+# util.hash_value_of_vector(v, planes)
+
+# planes_l
+
+# document_vecs = emb.toarray()
+
+# doc_vecs = document_vecs.tolist()
+# len(doc_vecs)
+
+
+# # Creating the hashtables
+# hash_tables = []
+# id_tables = []
+# for universe_id in range(N_UNIVERSES):  # there are 25 hashes
+#     print('working on hash universe #:', universe_id)
+#     planes = planes_l[universe_id]
+#     hash_table, id_table = util.make_hash_table(doc_vecs, planes)
+#     hash_tables.append(hash_table)
+#     id_tables.append(id_table)
+
+# doc_id = 0
+# vec_to_search = np.array(doc_vecs[doc_id]).reshape(-1, 1)
+# vec_to_search.shape
+
+# # Sample
+# nearest_neighbor_ids = util.approximate_knn(doc_id, vec_to_search, planes_l, k=3, num_universes_to_use=5, hash_tables=hash_tables, id_tables=id_tables)
 
 #---------------------------------------------------------------------------------------
 

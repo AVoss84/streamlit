@@ -12,7 +12,7 @@ from sklearn.naive_bayes import BernoulliNB
 from sklearn.pipeline import Pipeline
 from sklearn.metrics.pairwise import cosine_similarity, linear_kernel #, rbf_kernel 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-#from sklearn.feature_extraction.text import HashingVectorizer   # use integer hash instead of actual token in memory
+from sklearn.feature_extraction.text import HashingVectorizer   # use integer hash instead of actual token in memory
 #from sklearn.metrics import pairwise_distances
 from typing import List
 import gensim
@@ -520,26 +520,23 @@ class embeddings(BaseEstimator, TransformerMixin):
 
 
 class make_nb_feat(BaseEstimator, TransformerMixin):
-    
   """
-  Create Naive Bayes like document embeddings
+  Create 'Naive Bayes'- like document embeddings
   """
-
-  def __init__(self, verbose : bool = True, pipeline = None, **vect_param):
+  def __init__(self, verbose : bool = True, vectorizer : TransformerMixin = None, **vect_param):
         
-      self.verbose = verbose  
-      self.pipeline = pipeline
-      if verbose : print('-- Creating Naive Bayes like document embeddings --\n')  
-      if self.pipeline is None:      
+        self.verbose = verbose  
+        self.vectorizer = vectorizer
+        if verbose : print('-- Creating Naive Bayes like document embeddings --\n')  
+        if self.vectorizer is None:      
+            # self.vectorizer = CountVectorizer(analyzer = 'word',  
+            #                     stop_words = None, **vect_param)
+            # Compute raw counts using hashing vectorizer 
+            self.vectorizer = HashingVectorizer(analyzer = 'word',    # Small numbers of n_features can cause hash collisions 
+                                                alternate_sign=False, **vect_param)
         self.pipeline = Pipeline([
-                #('cleaner', utils.clean_text(verbose=False)),
-                ('vectorizer', CountVectorizer(lowercase=True, #ngram_range=(2, 2),
-                                    #token_pattern = '(?u)(?:(?!\d)\w)+\\w+', 
-                                        analyzer = 'word',  #char_wb
-                                        #tokenizer = None, 
-                                        stop_words = None, #"english"
-                                        **vect_param          
-                                        )),  
+                #('cleaner', utils.clean_text(verbose=False)),   # we assume X is already preprocessed at the moment
+                ('vectorizer', self.vectorizer),  
                 ('model', BernoulliNB(alpha=1))
                 ])
 
@@ -548,7 +545,10 @@ class make_nb_feat(BaseEstimator, TransformerMixin):
         
       self.pipeline.fit(X, y)
       self.pipeline.named_steps['vectorizer'].get_stop_words()
-      self.vocab_ = self.pipeline.named_steps['vectorizer'].get_feature_names()
+      try:
+          self.vocab_ = self.pipeline.named_steps['vectorizer'].get_feature_names_out()
+      except Exception as ex:
+          self.vocab_ = None  
       self.vectorizer = self.pipeline.named_steps['vectorizer']
       self.model = self.pipeline.named_steps['model']
       dt = self.vectorizer.transform(X)   # train set
@@ -557,7 +557,7 @@ class make_nb_feat(BaseEstimator, TransformerMixin):
       #self.joint_abs_freq_train = pd.DataFrame(self.model.feature_count_, index=[str(i) for i in self.model.classes_], columns=self.vocab_)
       return self
 
-  def transform(self, X):
+  def transform(self, X)-> pd.DataFrame:
 
       dt = self.vectorizer.transform(X)
       self.doc_term_mat = dt.toarray()
@@ -569,3 +569,187 @@ class make_nb_feat(BaseEstimator, TransformerMixin):
             #feat_c = np.sum(self.doc_term_mat * self.joint_abs_freq_train.loc[str(c),:].values, axis = 1)   # broadcast
             features_class['level'+str(c)] = feat_c
       return features_class 
+
+
+def nearest_neighbor(v, candidates, k=1):
+    """
+    Input:
+      - v, the vector you are going find the nearest neighbor for
+      - candidates: a set of vectors where we will find the neighbors
+      - k: top k nearest neighbors to find
+    Output:
+      - k_idx: the indices of the top k closest vectors in sorted form
+    """
+    similarity_l = []
+
+    # for each candidate vector...
+    for row in candidates:
+        # get the cosine similarity
+        cos_similarity = cosine_similarity(v,row)
+
+        # append the similarity to the list
+        similarity_l.append(cos_similarity)
+        
+    # sort the similarity list and get the indices of the sorted list
+    sorted_ids = np.argsort(similarity_l)
+
+    # get the indices of the k most similar candidate vectors
+    k_idx = sorted_ids[-k:]
+    return k_idx
+
+
+def hash_value_of_vector(v, planes):
+    """Create a hash for a vector; hash_id says which random hash to use.
+    Input:
+        - v:  vector of tweet. It's dimension is (1, N_DIMS)
+        - planes: matrix of dimension (N_DIMS, N_PLANES) - the set of planes that divide up the region
+    Output:
+        - res: a number which is used as a hash for your vector
+
+    """
+    # for the set of planes,
+    # calculate the dot product between the vector and the matrix containing the planes
+    # remember that planes has shape (300, 10)
+    # The dot product will have the shape (1,10)
+    dot_product = np.dot(v,planes)
+    
+    # get the sign of the dot product (1,10) shaped vector
+    sign_of_dot_product = np.sign(dot_product)
+    
+    # set h to be false (eqivalent to 0 when used in operations) if the sign is negative,
+    # and true (equivalent to 1) if the sign is positive (1,10) shaped vector
+    h = sign_of_dot_product>=0
+
+    # remove extra un-used dimensions (convert this from a 2D to a 1D array)
+    h = np.squeeze(h)
+
+    # initialize the hash value to 0
+    hash_value = 0
+
+    n_planes = planes.shape[1]
+    for i in range(n_planes):
+        # increment the hash value by 2^i * h_i
+        hash_value += np.power(2,i)*h[i]
+
+    # cast hash_value as an integer
+    hash_value = int(hash_value)
+
+    return hash_value
+
+
+def make_hash_table(vecs, planes):
+    """
+    Input:
+        - vecs: list of vectors to be hashed.
+        - planes: the matrix of planes in a single "universe", with shape (embedding dimensions, number of planes).
+    Output:
+        - hash_table: dictionary - keys are hashes, values are lists of vectors (hash buckets)
+        - id_table: dictionary - keys are hashes, values are list of vectors id's
+                            (it's used to know which tweet corresponds to the hashed vector)
+    """
+    # number of planes is the number of columns in the planes matrix
+    num_of_planes = planes.shape[1]
+
+    # number of buckets is 2^(number of planes)
+    num_buckets = 2**num_of_planes
+
+    # create the hash table as a dictionary.
+    # Keys are integers (0,1,2.. number of buckets)
+    # Values are empty lists
+    hash_table = {i:[] for i in range(num_buckets)}
+
+    # create the id table as a dictionary.
+    # Keys are integers (0,1,2... number of buckets)
+    # Values are empty lists
+    id_table = {i:[] for i in range(num_buckets)}
+
+    # for each vector in 'vecs'
+    for i, v in enumerate(vecs):
+
+        # calculate the hash value for the vector
+        h = hash_value_of_vector(v,planes)
+        #print(h)
+        #print('******')
+        # store the vector into hash_table at key h,
+        # by appending the vector v to the list at key h
+        hash_table[h].append(v)
+
+        # store the vector's index 'i' (each document is given a unique integer 0,1,2...)
+        # the key is the h, and the 'i' is appended to the list at key h
+        id_table[h].append(i)
+
+    return hash_table, id_table
+
+
+
+def approximate_knn(doc_id, v, planes_l, k=1, num_universes_to_use=25, hash_tables = [], id_tables = []):
+    """Search for k-NN using hashes."""
+    assert num_universes_to_use <= num_universes_to_use
+
+    # Vectors that will be checked as p0ossible nearest neighbor
+    vecs_to_consider_l = list()
+
+    # list of document IDs
+    ids_to_consider_l = list()
+
+    # create a set for ids to consider, for faster checking if a document ID already exists in the set
+    ids_to_consider_set = set()
+
+    # loop through the universes of planes
+    for universe_id in range(num_universes_to_use):
+
+        # get the set of planes from the planes_l list, for this particular universe_id
+        planes = planes_l[universe_id]
+
+        # get the hash value of the vector for this set of planes
+        hash_value = hash_value_of_vector(v, planes)
+
+        # get the hash table for this particular universe_id
+        hash_table = hash_tables[universe_id]
+
+        # get the list of document vectors for this hash table, where the key is the hash_value
+        document_vectors_l = hash_table[hash_value]
+
+        # get the id_table for this particular universe_id
+        id_table = id_tables[universe_id]
+
+        # get the subset of documents to consider as nearest neighbors from this id_table dictionary
+        new_ids_to_consider = id_table[hash_value]
+
+        # remove the id of the document that we're searching
+        if doc_id in new_ids_to_consider:
+            new_ids_to_consider.remove(doc_id)
+            print(f"removed doc_id {doc_id} of input vector from new_ids_to_search")
+
+        # loop through the subset of document vectors to consider
+        for i, new_id in enumerate(new_ids_to_consider):
+
+            # if the document ID is not yet in the set ids_to_consider...
+            if new_id not in ids_to_consider_set:
+                # access document_vectors_l list at index i to get the embedding
+                # then append it to the list of vectors to consider as possible nearest neighbors
+                document_vector_at_i = document_vectors_l[i]
+                
+                # append the new_id (the index for the document) to the list of ids to consider
+                vecs_to_consider_l.append(document_vector_at_i)
+                ids_to_consider_l.append(new_id)
+                # also add the new_id to the set of ids to consider
+                # (use this to check if new_id is not already in the IDs to consider)
+                ids_to_consider_set.add(new_id)
+
+    # Now run k-NN on the smaller set of vecs-to-consider.
+    print("Fast considering %d vecs" % len(vecs_to_consider_l))
+
+    # convert the vecs to consider set to a list, then to a numpy array
+    vecs_to_consider_arr = np.array(vecs_to_consider_l)
+
+    # call nearest neighbors on the reduced list of candidate vectors
+    nearest_neighbor_idx_l = nearest_neighbor(v, vecs_to_consider_arr, k=k)
+    print(nearest_neighbor_idx_l)
+    print(ids_to_consider_l)
+    # Use the nearest neighbor index list as indices into the ids to consider
+    # create a list of nearest neighbors by the document ids
+    nearest_neighbor_ids = [ids_to_consider_l[idx]
+                            for idx in nearest_neighbor_idx_l]
+
+    return nearest_neighbor_ids
