@@ -21,7 +21,8 @@ $ conda activate streaml
 Install other packages using pip:
 
 ```bash                                 
-$ pip install -r requirements.txt             
+$ pip install -r requirements.txt          
+$ pip install -e src                              # install package   
 ```
 
 Start your streamlit application by running:

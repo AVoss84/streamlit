@@ -17,8 +17,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from copy import deepcopy
 from importlib import reload
 
-from utils import utils as util
-from services import file
+from src.utils import utils as util
+from src.services import file
 from pathlib import Path
 
 # Path.home()

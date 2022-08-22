@@ -27,7 +27,7 @@ from gensim.parsing.preprocessing import stem_text, strip_multiple_whitespaces, 
 from copy import deepcopy
 from tqdm.auto import tqdm
 import pandas as pd
-from services import file
+from src.services import file
 import spacy
 
 #nltk.download('punkt')
@@ -40,7 +40,7 @@ class clean_text(BaseEstimator, TransformerMixin):
         self.kwargs = kwargs
         self.stop_words = set(stopwords.words(language))
         if self.verbose: print(f'Using {len(self.stop_words)} stop words.')
-        self.german_stopwords = file.JSONservice(child_path = "data", verbose=False).doRead(filename='stopwords.json')
+        self.german_stopwords = file.JSONservice(verbose=False).doRead(filename='stopwords.json')
         if self.verbose: print(f'Adding custom German stop words...')
         self.stop_words = self._add_stopwords(self.german_stopwords) 
 
@@ -52,7 +52,7 @@ class clean_text(BaseEstimator, TransformerMixin):
 
         self.stemmer = SnowballStemmer(language)
         self.nlp = spacy.load('de_core_news_lg')
-        self.umlaut = file.YAMLservice(child_path = "config").doRead(filename = "preproc_txt.yaml")
+        self.umlaut = file.YAMLservice(child_path = "/config").doRead(filename = "preproc_txt.yaml")
 
     def _add_stopwords(self, new_stopwords : list)-> set:
         """
@@ -141,7 +141,7 @@ class clean_text(BaseEstimator, TransformerMixin):
     def fit(self, X : pd.DataFrame, y : pd.Series = None):
         return self    
     
-    def transform(self, X : pd.Series, **param)-> pd.DataFrame:    
+    def transform(self, X : pd.Series, **param)-> pd.Series:    
         corpus = deepcopy(X)
         corpus = corpus.str.lower()
         corpus = corpus.apply(self.remove_whitespace)
@@ -158,7 +158,7 @@ class clean_text(BaseEstimator, TransformerMixin):
         #corpus = corpus.apply(self.lemmatize)   # makes preprocessing very slow though
         corpus = corpus.apply(self.untokenize)
         if self.verbose: print("Finished preprocessing.")
-        return corpus.to_frame(name="text") 
+        return corpus #.to_frame(name="text") 
 
 
 class text_tools:

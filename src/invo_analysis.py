@@ -20,8 +20,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from copy import deepcopy
 from importlib import reload
 
-from utils import utils as util
-from services import file
+from src.utils import utils as util
+from src.services import file
 from pathlib import Path
 
 pd.set_option('display.max_colwidth', 30)
@@ -48,9 +48,10 @@ df.info(verbose=True)
 col_sel = ['id_sch','invoice_item_id', 'dl_gewerk','firma', 'yylobbez', 'erartbez', 'hsp_eigen', 'hsp_prodbez', 'sartbez', 'sursbez', 'schilderung', 'de1_eks_postext']
 col_sel = ['dl_gewerk','de1_eks_postext']
 
-corpus = df[col_sel]
+corpus = df[col_sel].head(5*10**4)
 #corpus = df['de1_eks_postext']
 corpus.head(100)
+corpus.shape
 
 # Descriptive stat.:
 corpus.groupby(['id_sch']).agg({'invoice_item_id': 'count'}).rename(columns={'invoice_item_id': '#invoices'})
@@ -326,8 +327,8 @@ corpus_cl.head(20)
 corpus_cl.shape
 
 
-for z,(i,k) in enumerate(zip(corpus_cl.head(1000).tolist(), corpus.head(1000).tolist())):
-   print(z, i,"=======",k)
+# for z,(i,k) in enumerate(zip(corpus_cl.head(1000).tolist(), corpus.head(1000).tolist())):
+#    print(z, i,"=======",k)
 
 
 pipeline = Pipeline([
@@ -469,7 +470,7 @@ features_class.shape
 print(len(nlp_feat.vocab_))
 print(y.nunique())
 
-
+features_class
 #--------------------------------------------------------------------------------------
 
 # Train model:

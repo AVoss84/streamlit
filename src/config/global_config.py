@@ -1,4 +1,5 @@
 import os, sys
+from pathlib import Path
 
 #-------------------------------
 # Which dev environment to use?
@@ -11,8 +12,8 @@ using = 'vm'                    # own virtual machine
 ## if not apply default paths from test environment:
 #-----------------------------------------------------------
 if using == 'vm':
-    defaults = {"UC_CODE_DIR": "/dashboard/",                      
-                "UC_DATA_ROOT": "/data/data/reporting/input_data/",       
+    defaults = {"UC_CODE_DIR": str(Path.home() / "Documents/GitHub/streamlit/src/"),                      
+                "UC_DATA_ROOT": str(Path.home() / "Documents/GitHub/streamlit/data/"),       
                 "UC_PROFILE" :"prod",        # "prod" ; set this profile for overall Postgres usage, also Flask server
                 #"UC_DB_CONNECTION": '',
                 #"UC_PORT":"5000", 
@@ -22,7 +23,7 @@ if using == 'vm':
 else:
     defaults = {
             "UC_CODE_DIR": "/app/src/",                          
-            "UC_DATA_ROOT": "/app/Data/reporting/input_data",            
+            "UC_DATA_ROOT": "/app/Data/reporting/data",            
             "UC_PROFILE" :"prod",        # "prod" ; set this profile for overall Postgres usage, also Flask server
             #"UC_DB_CONNECTION": '',
             #"UC_PORT":"5000", 

@@ -5,6 +5,7 @@ import os, yaml, sys, stat, pickle, json
 from copy import deepcopy
 import dateutil
 from pathlib import Path
+from src.config import global_config as glob
 
 
 class CSVService:
@@ -170,7 +171,7 @@ class PickleService:
                     
 class YAMLservice:
         def __init__(self, child_path : str = '', 
-                     root_path = Path.cwd(), verbose = False, **kwargs):
+                     root_path = glob.UC_CODE_DIR, verbose = False, **kwargs):
             
             self.root_path = root_path
             self.child_path = child_path
@@ -181,10 +182,10 @@ class YAMLservice:
             """
             Read in YAMl file from specified path
             """
-            with open(self.root_path / self.child_path / filename , 'r') as stream:
+            with open(self.root_path + self.child_path +"/"+filename, 'r') as stream:
                 try:
                     my_yaml_load = yaml.safe_load(stream)
-                    if self.verbose: print(f"Read: {self.root_path / self.child_path / filename}")
+                    if self.verbose: print(f'Read: {self.root_path + self.child_path +"/"+filename}')
                     return my_yaml_load    
                 except yaml.YAMLError as exc:
                     print(exc) 
@@ -194,10 +195,10 @@ class YAMLservice:
             """
             Write dictionary X to YAMl file
             """
-            with open(self.root_path / self.child_path / filename, 'w') as outfile:
+            with open(self.root_path + self.child_path +"/"+filename, 'w') as outfile:
                 try:
                     yaml.dump(X, outfile, default_flow_style = False, **self.kwargs)
-                    if self.verbose: print(f"Write to: {self.root_path / self.child_path / filename}")
+                    if self.verbose: print(f'Write to: {self.root_path + self.child_path + "/"+filename}')
                     # try:
                     #     # Set rwx for owner, group, others:
                     #     os.chmod(self.path, stat.S_IRWXG | stat.S_IRWXU | stat.S_IRWXO)
@@ -242,7 +243,7 @@ class YAMLservice:
 
 class JSONservice:
         def __init__(self, child_path : str = '', 
-                     root_path = Path.cwd(), verbose = True, **kwargs):
+                     root_path = glob.UC_DATA_ROOT, verbose = True, **kwargs):
             
             self.root_path = root_path
             self.child_path = child_path
@@ -254,9 +255,9 @@ class JSONservice:
             Read in JSON file from specified path
             """
             try:
-                with open(self.root_path / self.child_path / filename , 'r') as stream:
+                with open(self.root_path + self.child_path +"/"+filename, 'r') as stream:
                     my_json_load = json.load(stream)                    
-                if self.verbose: print(f"Read: {self.root_path / self.child_path / filename}")
+                if self.verbose: print(f'Read: {self.root_path + self.child_path +"/"+filename}')
                 return my_json_load    
             except Exception as exc:
                 print(exc) 
@@ -265,9 +266,9 @@ class JSONservice:
             """
             Write X to JSON file
             """
-            with open(self.root_path / self.child_path / filename, 'w', encoding='utf-8') as outfile:
+            with open(self.root_path + self.child_path + "/"+filename, 'w', encoding='utf-8') as outfile:
                 try:
                     json.dump(X, filename, ensure_ascii=False, indent=4, **self.kwargs)
-                    if self.verbose: print(f"Write to: {self.root_path / self.child_path / filename}")
+                    if self.verbose: print(f'Write to: {self.root_path + self.child_path + "/"+filename}')
                 except Exception as exc:
                     print(exc) 
