@@ -47,20 +47,21 @@ df.info(verbose=True)
 
 col_sel = ['id_sch','invoice_item_id', 'dl_gewerk','firma', 'yylobbez', 'erartbez', 'hsp_eigen', 'hsp_prodbez', 'sartbez', 'sursbez', 'schilderung', 'de1_eks_postext']
 col_sel = ['dl_gewerk','de1_eks_postext']
+col_sel = ['de1_eks_postext']
 
 corpus = df[col_sel].head(5*10**4)
 #corpus = df['de1_eks_postext']
 corpus.head(100)
 corpus.shape
 
+X = corpus['de1_eks_postext']
+
 # Descriptive stat.:
-corpus.groupby(['id_sch']).agg({'invoice_item_id': 'count'}).rename(columns={'invoice_item_id': '#invoices'})
+#corpus.groupby(['id_sch']).agg({'invoice_item_id': 'count'}).rename(columns={'invoice_item_id': '#invoices'})
 
-corpus.groupby(['dl_gewerk']).agg({'de1_eks_postext': 'count'}).rename(columns={'de1_eks_postext': 'totals'}).sort_values(by='totals', ascending=False).reset_index()
+#corpus.groupby(['dl_gewerk']).agg({'de1_eks_postext': 'count'}).rename(columns={'de1_eks_postext': 'totals'}).sort_values(by='totals', ascending=False).reset_index()
 
-
-corpus.groupby(['dl_gewerk','sursbez']).agg({'de1_eks_postext': 'count'}).rename(columns={'de1_eks_postext': 'totals'}).sort_values(by='totals', ascending=False)
-
+#corpus.groupby(['dl_gewerk','sursbez']).agg({'de1_eks_postext': 'count'}).rename(columns={'de1_eks_postext': 'totals'}).sort_values(by='totals', ascending=False)
 
 
 #----------------------------
@@ -73,7 +74,8 @@ cleaner = util.clean_text(language='german',
                           without_stopwords=['nicht', 'keine'],
                           with_stopwords=['zzgl'])
 
-corpus_cl = cleaner.fit_transform(corpus)
+corpus_cl = cleaner.fit_transform(X)
+
 corpus_cl.head(20)
 
 #corpus_train = corpus_cl.tolist()

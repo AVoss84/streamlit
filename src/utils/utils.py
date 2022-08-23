@@ -28,6 +28,7 @@ from copy import deepcopy
 from tqdm.auto import tqdm
 import pandas as pd
 from src.services import file
+from src.config import global_config as glob
 import spacy
 
 #nltk.download('punkt')
@@ -154,7 +155,7 @@ class clean_text(BaseEstimator, TransformerMixin):
         corpus = corpus.apply(self.replace_umlaut)   
         corpus = corpus.apply(self.remove_spec_char_punct)
         corpus = corpus.apply(self.remove_short_tokens, token_length=3)
-        corpus = corpus.apply(self.stem)
+        #corpus = corpus.apply(self.stem)
         #corpus = corpus.apply(self.lemmatize)   # makes preprocessing very slow though
         corpus = corpus.apply(self.untokenize)
         if self.verbose: print("Finished preprocessing.")
@@ -414,7 +415,7 @@ class embeddings(BaseEstimator, TransformerMixin):
         corpus = inputs.corpus
         
         self.save_model = save_model
-        self.fname = get_tmpfile(glob.UC_CODE_DIR+"predictor_fraud/resources/models/"+self.save_model['model_name'])
+        self.fname = get_tmpfile(glob.UC_DATA_ROOT + self.save_model['model_name'])
         
         if self.model_type == 'doc2vec':
             documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(texts)]
@@ -449,7 +450,7 @@ class embeddings(BaseEstimator, TransformerMixin):
         """Train language model"""
         self.text_preprocess(X, n_grams = self.n_grams, threshold = self.threshold, min_count = 30, 
                              lemmatize = self.lemmatize)
-        self.build_vecm(model_type = self.model_type, size=self.size, window=self.window, workers=cpu_count()-1, 
+        self.build_vecm(model_type = self.model_type, size=self.size, window=self.window, workers=4, #cpu_count()-1, 
                         save_model = self.save_model, min_count = self.min_count)
         self.model.epochs = self.epochs
         
@@ -461,10 +462,11 @@ class embeddings(BaseEstimator, TransformerMixin):
             self.tfidf = TfidfModel(self.corpus, smartirs='ntc', normalize = True)        
             print("Finished.")   
                 
-        t = time() ; print("Start training vector model...")
+        #t = time() ; 
+        print("Start training vector model...")
         self.model.train(self.training_input, total_examples = self.model.corpus_count, 
                          epochs = self.epochs, **vec_para)    
-        print('Time to train the model: {} mins'.format(round((time() - t)/60, 2)))
+        #print('Time to train the model: {} mins'.format(round((time() - t)/60, 2)))
         self.model.init_sims(replace=True)
         
         if self.save_model['save']: 
