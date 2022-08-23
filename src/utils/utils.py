@@ -154,7 +154,7 @@ class clean_text(BaseEstimator, TransformerMixin):
         corpus = corpus.apply(self.replace_umlaut)   
         corpus = corpus.apply(self.remove_spec_char_punct)
         corpus = corpus.apply(self.remove_short_tokens, token_length=3)
-        #corpus = corpus.apply(self.stem)
+        corpus = corpus.apply(self.stem)
         #corpus = corpus.apply(self.lemmatize)   # makes preprocessing very slow though
         corpus = corpus.apply(self.untokenize)
         if self.verbose: print("Finished preprocessing.")
