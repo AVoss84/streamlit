@@ -1,4 +1,4 @@
-# Code generator using OpenAI's GPT-3 
+# SQL code generator using OpenAI's GPT-3 
 
 ## Installation
 
