@@ -14,7 +14,7 @@ from sklearn.metrics.pairwise import cosine_similarity, linear_kernel #, rbf_ker
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.feature_extraction.text import HashingVectorizer   # use integer hash instead of actual token in memory
 #from sklearn.metrics import pairwise_distances
-from typing import List
+from typing import (Dict, List, Text, Optional, Any, Callable)
 import gensim
 from gensim.models import FastText, Phrases, phrases, TfidfModel
 from gensim.utils import simple_preprocess
@@ -751,7 +751,32 @@ def approximate_knn(doc_id, v, planes_l, k=1, num_universes_to_use=25, hash_tabl
     print(ids_to_consider_l)
     # Use the nearest neighbor index list as indices into the ids to consider
     # create a list of nearest neighbors by the document ids
-    nearest_neighbor_ids = [ids_to_consider_l[idx]
-                            for idx in nearest_neighbor_idx_l]
+    nearest_neighbor_ids = [ids_to_consider_l[idx] for idx in nearest_neighbor_idx_l]
 
     return nearest_neighbor_ids
+
+
+
+def get_document_embeddings(model : Callable, sentences : List[List[Text]], documents : List[Text])-> np.array:
+    """
+    Calculate Word2Vec document embeddings by simple arith. average of word embeddings.
+
+    Args:
+        model (Callable): _description_
+        sentences (List[List[Text]]): _description_
+        documents (List[Text]): _description_
+
+    Returns:
+        np.array: _description_
+    """ 
+    doc_vectors = np.empty((len(sentences),model.vector_size))
+    index2doc, doc2index = {}, {}
+    for i, doc in enumerate(tqdm(sentences, total=len(sentences))):
+        index2doc[i], doc2index[str(documents[i])] = documents[i], i
+        vec=np.empty((model.vector_size,0))    # empty column
+        if len(doc)>0:
+            for token in doc:
+                vector = model.wv[token]
+                vec = np.column_stack((vec, vector))
+            doc_vectors[i,:] = np.nanmean(vec, axis=1)
+    return doc_vectors, index2doc, doc2index
