@@ -14,3 +14,6 @@ spacy==3.4.1
 fasttext==1.21.6
 bertopic
 annoy
+uvicorn
+fastapi
+#fastapi[all]    # incl uvicorn
