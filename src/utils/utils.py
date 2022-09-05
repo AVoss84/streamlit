@@ -790,9 +790,10 @@ class word2vec_callback(CallbackAny2Vec):
     """
     def __init__(self):
         self.epoch = 0
+        print("Starting Word2Vec log-loss monitoring...")
 
     def on_epoch_end(self, model):
-        loss = model.get_latest_training_loss()
+        loss = model.get_latest_training_loss()      # note: this outputs the total, i.e. cumulative log loss, until iteration t 
         if self.epoch == 0:
             print('Loss after epoch {}: {}'.format(self.epoch, loss))
         else:
