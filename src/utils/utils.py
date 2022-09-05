@@ -16,6 +16,7 @@ from sklearn.feature_extraction.text import HashingVectorizer   # use integer ha
 #from sklearn.metrics import pairwise_distances
 from typing import (Dict, List, Text, Optional, Any, Callable)
 import gensim
+from gensim.models.callbacks import CallbackAny2Vec
 from gensim.models import FastText, Phrases, phrases, TfidfModel
 from gensim.utils import simple_preprocess
 from gensim.test.utils import get_tmpfile
@@ -780,3 +781,26 @@ def get_document_embeddings(model : Callable, sentences : List[List[Text]], docu
                 vec = np.column_stack((vec, vector))
             doc_vectors[i,:] = np.nanmean(vec, axis=1)
     return doc_vectors, index2doc, doc2index
+
+
+
+class word2vec_callback(CallbackAny2Vec):
+    """
+    Callback to print loss after each epoch
+    """
+    def __init__(self):
+        self.epoch = 0
+
+    def on_epoch_end(self, model):
+        loss = model.get_latest_training_loss()
+        if self.epoch == 0:
+            print('Loss after epoch {}: {}'.format(self.epoch, loss))
+        else:
+            print('Loss after epoch {}: {}'.format(self.epoch, loss- self.loss_previous_step))
+        self.epoch += 1
+        self.loss_previous_step = loss
+        
+
+
+
+
