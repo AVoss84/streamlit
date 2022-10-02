@@ -13,7 +13,7 @@ class User_input(BaseModel):
     y: float
 
 
-app = FastAPI()
+app = FastAPI(title="Test API", description="Alex API", version="1.0")
 
 @app.get("/health")
 async def root():
