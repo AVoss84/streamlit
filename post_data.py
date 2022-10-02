@@ -1,5 +1,7 @@
 import json, requests
 
+# see create_api.py for details
+
 selected_op = 'Multiplication' 
 x = 2
 y = 4
