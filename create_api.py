@@ -20,7 +20,7 @@ async def root():
     return {"message": "Service is healthy!"}
 
 
-@app.post("/make_calculation")
+@app.post("/calculate")
 def operate(input:User_input):
     result = calculate(input.operation, input.x, input.y)
     return result
