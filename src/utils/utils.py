@@ -786,26 +786,28 @@ def get_document_embeddings(model : Callable, sentences : List[List[Text]], docu
 
 
 
-def get_weighted_document_embeddings(model : Callable, tf_idf_vec : pd.DataFrame, sentences : List[List[Text]])-> np.array:
+def get_weighted_document_embeddings(model : Callable, tf_idf_vec : pd.DataFrame, sentences : List[List[Text]], documents : List[Text])-> np.array:
     """
     Calculate Word2Vec document embeddings by tf-idf weighted arith. average of word embeddings.
 
     Args:
         model (Callable): _description_
-        sentences (List[List[Text]]): List of lists. Each document must be list strings (i.e. already tokenized)
+        sentences (List[List[Text]]): _description_
 
     Returns:
         np.array: _description_
     """ 
     n, vec_size = len(sentences), model.wv.vectors.shape[1]
     doc_vecs = np.zeros((n,vec_size))
-    for i in tqdm(range(len(sentences))):
+    index2doc, doc2index = {}, {}
+    for i, doc in enumerate(tqdm(sentences, total=len(sentences))):
+      index2doc[i], doc2index[str(documents[i])] = documents[i], i
       doc_i = 0
-      for token in sentences[i]:
+      for token in doc:
           weight = tf_idf_vec.loc[i,token]
           doc_i += weight * model.wv[token]
       doc_vecs[i,:] = doc_i  
-    return doc_vecs
+    return doc_vecs, index2doc, doc2index
 
 
 
