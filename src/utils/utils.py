@@ -54,7 +54,8 @@ class clean_text(BaseEstimator, TransformerMixin):
 
         self.stemmer = SnowballStemmer(language)
         self.nlp = spacy.load('de_core_news_lg')
-        self.umlaut = file.YAMLservice(child_path = "/config").doRead(filename = "preproc_txt.yaml")
+        #self.umlaut = file.YAMLservice(child_path = "/config").doRead(filename = "preproc_txt.yaml")
+        self.umlaut = {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'}  
 
     def _add_stopwords(self, new_stopwords : list)-> set:
         """
@@ -86,9 +87,10 @@ class clean_text(BaseEstimator, TransformerMixin):
         if self.verbose: print(f"Removed {len(old)-len(self.stop_words)} stopword(s).")
         return self.stop_words
 
+
     def untokenize(self, text: List[str])-> str:
         """Revert tokenization: list of strings -> string"""
-        return " ".join([w for w in text])
+        return " ".join([w.lower() for w in text])    
 
     def count_stopwords(self):
         print(f'{len(self.stop_words)} used.')
@@ -130,7 +132,7 @@ class clean_text(BaseEstimator, TransformerMixin):
 
     def replace_umlaut(self, text : str) -> str:
         """Replace special German umlauts (vowel mutations) from text"""
-        vowel_char_map = {ord(k): v for k,v in self.umlaut['replace']['german']['umlaute'].items()}  # use unicode value of Umlaut
+        vowel_char_map = {ord(k): v for k,v in self.umlaut.items()}  # use unicode value of Umlaut
         return [token.translate(vowel_char_map) for token in text]
 
     def stem(self, text : str)-> str:
